@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Price Tier Segmentation Tool</title>
+<script src="./tableau.extensions.1.latest.js"></script>
+<script src="./chart.umd.min.js"></script>
+<style>
+:root{--eco:#27ae60;--eco-bg:#eafaf1;--mass:#2980b9;--mass-bg:#ebf5fb;--premium:#e67e22;--premium-bg:#fef5e7;--luxury:#8e44ad;--luxury-bg:#f5eef8;--bg:#f4f6f9;--card:#fff;--border:#e2e8f0;--text:#1a202c;--text-mid:#4a5568;--text-light:#a0aec0;--accent:#3182ce;--shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);--shadow-md:0 4px 6px rgba(0,0,0,.07),0 2px 4px rgba(0,0,0,.06);--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;font-size:14px}
+.header{background:linear-gradient(135deg,#1a365d,#2b6cb0);color:#fff;padding:16px 28px;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:1.3rem;font-weight:700}
+.header .sub{font-size:.78rem;opacity:.8;margin-top:2px}
+.h-actions{display:flex;gap:8px}
+.h-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;padding:7px 14px;border-radius:7px;cursor:pointer;font-size:.8rem;transition:background .2s}
+.h-btn:hover{background:rgba(255,255,255,.22)}
+.container{max-width:1500px;margin:0 auto;padding:20px}
+.ctrl-bar{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 20px;margin-bottom:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.ctrl-group{display:flex;flex-direction:column;gap:3px}
+.ctrl-group label{font-size:.72rem;font-weight:600;color:var(--text-mid);text-transform:uppercase;letter-spacing:.3px}
+.dd-wrap{position:relative;min-width:260px}
+.dd-toggle{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border:1px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;font-size:.85rem;min-height:36px;gap:8px}
+.dd-toggle:hover{border-color:var(--accent)}
+.dd-toggle.open{border-color:var(--accent);box-shadow:0 0 0 3px rgba(49,130,206,.12)}
+.dd-toggle .dd-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-toggle .dd-arrow{font-size:.6rem;color:var(--text-light);transition:transform .2s}
+.dd-toggle.open .dd-arrow{transform:rotate(180deg)}
+.dd-menu{display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-md);z-index:100;margin-top:4px;max-height:320px;overflow-y:auto;padding:6px 0}
+.dd-menu.show{display:block}
+.dd-opt{display:flex;align-items:center;gap:10px;padding:8px 14px;cursor:pointer;font-size:.82rem;transition:background .1s}
+.dd-opt:hover{background:#f7fafc}
+.dd-opt input[type="checkbox"]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+.dd-opt .dd-count{margin-left:auto;font-size:.7rem;color:var(--text-light);background:var(--bg);padding:1px 8px;border-radius:10px}
+.dd-opt.all-opt{border-bottom:1px solid var(--border);margin-bottom:4px;padding-bottom:10px;font-weight:600}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:16px}
+.card h2{font-size:.95rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.mch1-title{font-size:1.05rem;font-weight:700;padding:10px 0 6px;border-bottom:3px solid var(--accent);margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mch1-title .mch1-icon{width:8px;height:24px;border-radius:4px;background:var(--accent);flex-shrink:0}
+.link-cb{display:flex;align-items:center;gap:6px;margin-left:auto;font-size:.78rem;font-weight:400;color:var(--text-mid);cursor:pointer;user-select:none;white-space:nowrap}
+.link-cb input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
+.link-cb.active{color:var(--accent);font-weight:600}
+.tier-ctrl{background:#f8fafc;border:1px solid #edf2f7;border-radius:8px;padding:12px 14px;margin-bottom:14px}
+.tier-ctrl-label{font-size:.72rem;font-weight:600;color:var(--text-mid);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px}
+.slider-bar{position:relative;height:40px;margin:6px 0;cursor:crosshair}
+.slider-track{position:absolute;top:14px;left:0;right:0;height:12px;border-radius:6px;overflow:hidden;display:flex}
+.slider-track .seg{height:100%;transition:width .15s}
+.slider-handle{position:absolute;top:20px;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:50%;background:#fff;border:3px solid #4a5568;cursor:grab;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.22);touch-action:none;transition:box-shadow .15s,border-color .15s}
+.slider-handle:hover,.slider-handle.dragging{border-color:var(--accent);box-shadow:0 2px 14px rgba(49,130,206,.35)}
+.slider-handle.dragging{cursor:grabbing;width:32px;height:32px}
+.slider-handle.h-eco{border-color:var(--eco)}.slider-handle.h-eco:hover,.slider-handle.h-eco.dragging{border-color:var(--eco);box-shadow:0 2px 14px rgba(39,174,96,.35)}
+.slider-handle.h-mass{border-color:var(--mass)}.slider-handle.h-mass:hover,.slider-handle.h-mass.dragging{border-color:var(--mass);box-shadow:0 2px 14px rgba(41,128,185,.35)}
+.slider-handle.h-prem{border-color:var(--premium)}.slider-handle.h-prem:hover,.slider-handle.h-prem.dragging{border-color:var(--premium);box-shadow:0 2px 14px rgba(230,126,34,.35)}
+.slider-labels{display:flex;justify-content:space-between;font-size:.68rem;color:var(--text-light);margin-bottom:4px}
+.slider-labels span{text-align:center}
+.abs-inputs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px}
+.ai{display:flex;align-items:center;gap:5px}
+.ai-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.ai-label{font-size:.68rem;color:var(--text-light);white-space:nowrap}
+.ai input{width:100%;padding:5px 7px;border:1px solid var(--border);border-radius:5px;font-size:.82rem;font-variant-numeric:tabular-nums}
+.ai input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(49,130,206,.12)}
+.tab-bar{display:flex;gap:2px;margin-bottom:12px;background:var(--bg);border-radius:7px;padding:2px}
+.tab-btn{padding:6px 14px;border:none;background:transparent;border-radius:5px;cursor:pointer;font-size:.78rem;color:var(--text-light);transition:all .15s}
+.tab-btn.active{background:#fff;color:var(--text);box-shadow:var(--shadow);font-weight:600}
+.sum-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.sum-table th{background:#edf2f7;padding:7px 8px;text-align:right;font-weight:700;color:var(--text-mid);font-size:.7rem;text-transform:uppercase;letter-spacing:.3px;border-bottom:2px solid var(--border);white-space:nowrap}
+.sum-table th:first-child,.sum-table th:nth-child(2),.sum-table th:nth-child(3){text-align:left}
+.sum-table td{padding:7px 8px;border-bottom:1px solid #f0f0f0;text-align:right;font-variant-numeric:tabular-nums}
+.sum-table td:first-child,.sum-table td:nth-child(2),.sum-table td:nth-child(3){text-align:left}
+.sum-table tr.sub-group td{background:#f7fafc;font-weight:600;font-size:.78rem;color:var(--text-mid)}
+.sum-table tr.sub-brand td{background:#fafbfc}
+.sum-table tr.total-row{background:#edf2f7;font-weight:700}
+.sum-table tr.total-row td{border-bottom:none;border-top:2px solid var(--border)}
+.sum-table tr:hover:not(.total-row):not(.sub-group) td{background:#f0f4f8}
+.tier-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.badge-tier{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.66rem;font-weight:700;letter-spacing:.3px}
+.badge-tier.eco{background:var(--eco-bg);color:var(--eco)}
+.badge-tier.mass{background:var(--mass-bg);color:var(--mass)}
+.badge-tier.premium{background:var(--premium-bg);color:var(--premium)}
+.badge-tier.luxury{background:var(--luxury-bg);color:var(--luxury)}
+.flag-mb{color:#2980b9;font-weight:600;font-size:.72rem}
+.flag-pb{color:#e67e22;font-weight:600;font-size:.72rem}
+.dtbl-wrap{max-height:420px;overflow-y:auto;border:1px solid #eee;border-radius:8px}
+.dtbl-wrap::-webkit-scrollbar{width:5px}
+.dtbl-wrap::-webkit-scrollbar-thumb{background:#cbd5e0;border-radius:3px}
+.d-table{width:100%;border-collapse:collapse;font-size:.78rem}
+.d-table th{background:var(--bg);padding:8px 10px;text-align:left;font-weight:600;color:var(--text-light);font-size:.7rem;text-transform:uppercase;letter-spacing:.3px;border-bottom:2px solid var(--border);position:sticky;top:0;z-index:1;cursor:pointer;user-select:none;white-space:nowrap}
+.d-table th:hover{color:var(--text)}
+.d-table td{padding:7px 10px;border-bottom:1px solid #f7f7f7}
+.d-table tr:hover td{background:#fafbfc}
+.tbl-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.search-box{padding:7px 12px;border:1px solid var(--border);border-radius:7px;font-size:.82rem;width:200px}
+.search-box:focus{outline:none;border-color:var(--accent)}
+.f-chip{padding:4px 12px;border-radius:16px;border:2px solid var(--border);background:#fff;cursor:pointer;font-size:.72rem;font-weight:600;transition:all .15s}
+.f-chip.sel{border-color:var(--accent);background:#ebf8ff;color:var(--accent)}
+.charts-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
+.chart-card canvas{max-height:260px}
+.chart-card h3{font-size:.85rem;margin-bottom:10px}
+
+/* Loading & Status overlays */
+#loadingOverlay{display:none;text-align:center;padding:60px 20px;color:var(--text-mid)}
+#loadingOverlay .spinner{display:inline-block;width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loadingOverlay p{font-size:.88rem}
+#errorBanner{display:none;background:#fff5f5;border:1px solid #fc8181;border-radius:var(--radius);padding:14px 20px;margin-bottom:16px;color:#c53030;font-size:.85rem}
+#errorBanner .close-btn{float:right;cursor:pointer;font-weight:700;font-size:1rem;color:#c53030;background:none;border:none}
+#noConfig{display:none;text-align:center;padding:60px 20px}
+#noConfig .icon{font-size:3rem;margin-bottom:12px}
+#noConfig h3{font-size:1.1rem;color:var(--text);margin-bottom:8px}
+#noConfig p{font-size:.85rem;color:var(--text-mid);margin-bottom:16px}
+#noConfig button{padding:10px 24px;border:none;border-radius:7px;background:var(--accent);color:#fff;font-size:.88rem;font-weight:600;cursor:pointer}
+
+@media(max-width:1100px){.charts-row{grid-template-columns:1fr 1fr}.ctrl-bar{flex-direction:column;align-items:stretch}}
+@media(max-width:768px){.charts-row{grid-template-columns:1fr}.container{padding:12px}.header{padding:14px 18px;flex-direction:column;gap:10px}.sum-table{font-size:.72rem}.sum-table th,.sum-table td{padding:5px 4px}.abs-inputs{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="header">
+<div><h1>📊 Price Tier Segmentation Tool</h1><div class="sub">แบ่งกลุ่มสินค้าตามช่วงราคา — ปรับ Tier แยกตามหมวด MCH1 | Sub-table: PrivateBrand & Brand</div></div>
+<div class="h-actions"><button class="h-btn" onclick="exportCSV()">📥 Export SKU</button><button class="h-btn" onclick="exportSummary()">📥 Export ตารางหมวดหมู่</button><button class="h-btn" onclick="resetBounds()">🔄 Reset Bounds</button><button class="h-btn" onclick="openConfig()">⚙️ Settings</button></div>
+</div>
+
+<div class="container">
+<!-- Loading Overlay -->
+<div id="loadingOverlay"><div class="spinner"></div><p id="loadingText">กำลังโหลดข้อมูลจาก Tableau...</p></div>
+
+<!-- Error Banner -->
+<div id="errorBanner"><button class="close-btn" onclick="hideError()">✕</button><span id="errorText"></span></div>
+
+<!-- No Config Placeholder -->
+<div id="noConfig">
+  <div class="icon">⚙️</div>
+  <h3>ยังไม่ได้ตั้งค่า</h3>
+  <p>เลือก Worksheet และ map column เพื่อเริ่มใช้งาน</p>
+  <button onclick="openConfig()">⚙️ ตั้งค่า</button>
+</div>
+
+<!-- Control Bar (MCH3 + MCH1 dropdowns) -->
+<div class="ctrl-bar" id="ctrlBar" style="display:none">
+<div class="ctrl-group" style="min-width:220px"><label>🏠 หมวดสินค้า (MCH3)</label>
+<div class="dd-wrap" id="dd3Wrap"><div class="dd-toggle" id="dd3Toggle" onclick="toggleDD3()"><span class="dd-text" id="dd3Text">-</span><span class="dd-arrow">▼</span></div><div class="dd-menu" id="dd3Menu"></div></div></div>
+<div class="ctrl-group" style="flex:1;min-width:260px"><label>📦 กลุ่มสินค้า (MCH1 Product Group)</label>
+<div class="dd-wrap" id="ddWrap"><div class="dd-toggle" id="ddToggle" onclick="toggleDD()"><span class="dd-text" id="ddText">-</span><span class="dd-arrow">▼</span></div><div class="dd-menu" id="ddMenu"></div></div></div>
+</div>
+
+<div id="summaryContainer"></div>
+
+<div class="charts-row" id="chartsRow" style="display:none">
+<div class="card chart-card"><h3>📊 SKU Count by Tier</h3><canvas id="chartBar"></canvas></div>
+<div class="card chart-card"><h3>🍩 % Share Sale Amt</h3><canvas id="chartDonut"></canvas></div>
+<div class="card chart-card"><h3>📈 กำไร% by Tier</h3><canvas id="chartProfit"></canvas></div>
+</div>
+
+<div class="card" id="detailCard" style="display:none">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+<h2 style="margin:0">📋 รายละเอียด SKU (<span id="rowCount">0</span>)</h2>
+<div class="tbl-controls"><input class="search-box" id="searchBox" placeholder="🔍 ค้นหา..." oninput="renderDetail()">
+<div style="display:flex;gap:4px"><button class="f-chip sel" data-f="ALL" onclick="setDFilter('ALL')">ALL</button><button class="f-chip" data-f="ECO" onclick="setDFilter('ECO')">ECO</button><button class="f-chip" data-f="MASS" onclick="setDFilter('MASS')">MASS</button><button class="f-chip" data-f="PREMIUM" onclick="setDFilter('PREMIUM')">PREMIUM</button><button class="f-chip" data-f="LUXURY" onclick="setDFilter('LUXURY')">LUXURY</button></div></div></div>
+<div class="dtbl-wrap"><table class="d-table"><thead><tr><th onclick="sortD('sku')">SKU↕</th><th onclick="sortD('product')">Product↕</th><th onclick="sortD('mch3')">MCH3↕</th><th onclick="sortD('mch1')">MCH1↕</th><th onclick="sortD('brand')">Brand↕</th><th onclick="sortD('price')">Price↕</th><th onclick="sortD('saleAmt')">SaleAmt↕</th><th onclick="sortD('saleQty')">SaleQty↕</th><th onclick="sortD('profit')">Profit↕</th><th onclick="sortD('tier')">Tier↕</th></tr></thead><tbody id="dBody"></tbody></table></div></div>
+</div>
+
+<script src="./tier_segmentation.js"></script>
+</body>
+</html>
