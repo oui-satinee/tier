@@ -6,13 +6,10 @@
 
 ```
 tier-segmentation-extension/
-├── PriceTierSegmentation.trex        # Tableau extension manifest
-├── tier_segmentation.html            # Main extension UI
-├── tier_segmentation.js              # Main extension logic
-├── config.html                       # Configuration popup UI
-├── config.js                         # Configuration popup logic
+├── tier_segmentation.html            # Main extension UI (HTML + CSS)
+├── tier_segmentation.js              # Main extension logic (IIFE)
 ├── tableau.extensions.1.latest.js    # Tableau Extensions API (local)
-├── chart.umd.min.js                  # Chart.js v4.4.7 (local)
+├── chart.umd.min.js                  # Chart.js v4.4.7 (CDN fallback)
 └── README.md
 ```
 
@@ -45,41 +42,49 @@ Extension ต้องการข้อมูลจาก Tableau Worksheet ท
    npx http-server -p 8765 --cors
    ```
 
-2. **เปิด Tableau Desktop:**
+2. **สร้าง .trex manifest** (เฉพาะครั้งแรก) — สร้างไฟล์ `PriceTierSegmentation.trex`:
+   ```xml
+   <?xml version="1.0" encoding="utf-8"?>
+   <manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+     <dashboard-extension id="com.satinee.price-tier-segmentation" extension-version="1.0.0">
+       <default-locale>en_US</default-locale>
+       <name resource-id="name"/>
+       <description>Price Tier Segmentation Tool</description>
+       <author name="Satinee" email="satinee@example.com" organization="Satinee"/>
+       <min-api-version>1.4</min-api-version>
+       <source-location>
+         <url>http://localhost:8765/tier_segmentation.html</url>
+       </source-location>
+       <context-menu>
+         <configure-context-menu-item />
+       </context-menu>
+       <permissions>
+         <permission>full data</permission>
+       </permissions>
+     </dashboard-extension>
+     <resources>
+       <resource id="name">
+         <text locale="en_US">Price Tier Segmentation</text>
+       </resource>
+     </resources>
+   </manifest>
+   ```
+
+3. **เปิด Tableau Desktop:**
    - เปิด Workbook ที่มีข้อมูล SKU
    - สร้าง Dashboard → ลาก Worksheet ที่มีข้อมูลเข้าไป
-   - Objects → Extensions → เลือกไฟล์ `PriceTierSegmentation.trex`
+   - Objects → Extensions → เลือกไฟล์ `.trex`
 
-3. **Configure:**
-   - กดปุ่ม "Configure" หรือ ⚙️ Settings
-   - เลือก Worksheet ที่มีข้อมูล
-   - Map column ให้ตรง → Save
+4. **Configure:**
+   - กด Settings → เลือก Worksheet → Load Data
 
 ### Production (GitHub Pages)
 
-1. **Push ไป GitHub:**
-   ```bash
-   git init
-   git add .
-   git commit -m "feat: initial Tableau extension"
-   git remote add origin https://github.com/<username>/tier-segmentation-extension.git
-   git push -u origin main
+1. เปลี่ยน `<url>` ใน `.trex` เป็น GitHub Pages URL:
    ```
-
-2. **เปิด GitHub Pages:**
-   - ไปที่ repo Settings → Pages
-   - Source: Deploy from a branch → `main` / `/ (root)`
-   - Save
-
-3. **อัปเดต .trex URL:**
-   - เปิด `PriceTierSegmentation.trex`
-   - เปลี่ยน `<url>` เป็น:
-     ```
-     https://<username>.github.io/tier-segmentation-extension/tier_segmentation.html
-     ```
-
-4. **Tableau Server:**
-   - Admin ต้องเพิ่ม URL `https://<username>.github.io` ใน safe list
+   https://oui-satinee.github.io/tier/tier_segmentation.html
+   ```
+2. เปิด GitHub Pages ใน repo Settings → Pages → `main` / `root`
 
 ## ฟีเจอร์
 
@@ -90,16 +95,8 @@ Extension ต้องการข้อมูลจาก Tableau Worksheet ท
 - **ตารางรายละเอียด SKU** — ค้นหา, filter, sort
 - **Export CSV** — Export ทั้ง SKU detail และตารางหมวดหมู่
 - **Auto-refresh** — เมื่อเปลี่ยน filter ใน Tableau ข้อมูล refresh อัตโนมัติ
-- **Settings persistence** — worksheet selection และ column mapping บันทึกไว้ใน workbook
-
-## การแก้ปัญหา
-
-| ปัญหา | วิธีแก้ |
-|--------|---------|
-| Extension ไม่โหลด | ตรวจสอบ URL ใน `.trex` และ local server |
-| ไม่เห็น column | กด ⚙️ Settings → map column ด้วยมือ |
-| ข้อมูลไม่ refresh | ตรวจสอบว่า worksheet ถูกเลือกถูกต้อง |
-| กราฟไม่แสดง | ตรวจสอบว่า `chart.umd.min.js` โหลดสำเร็จ |
+- **Settings persistence** — worksheet selection บันทึกไว้ใน workbook
+- **Inline config** — เลือก Worksheet ได้จากหน้าหลัก (ไม่ต้องเปิด popup)
 
 ## License
 

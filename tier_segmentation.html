@@ -3,20 +3,51 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Price Tier Segmentation Tool</title>
-<script src="./tableau.extensions.1.latest.js"></script>
-<script src="./chart.umd.min.js"></script>
+<title>Price Tier Segmentation</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="tableau.extensions.1.latest.js"></script>
 <style>
 :root{--eco:#27ae60;--eco-bg:#eafaf1;--mass:#2980b9;--mass-bg:#ebf5fb;--premium:#e67e22;--premium-bg:#fef5e7;--luxury:#8e44ad;--luxury-bg:#f5eef8;--bg:#f4f6f9;--card:#fff;--border:#e2e8f0;--text:#1a202c;--text-mid:#4a5568;--text-light:#a0aec0;--accent:#3182ce;--shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);--shadow-md:0 4px 6px rgba(0,0,0,.07),0 2px 4px rgba(0,0,0,.06);--radius:10px}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;font-size:14px}
+
+/* Loading */
+.loading-overlay{display:none;text-align:center;padding:60px 20px;color:var(--text-mid)}
+.loading-overlay .spinner{display:inline-block;width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay p{font-size:.88rem}
+
+/* Error */
+.error-banner{display:none;background:#fff5f5;border:1px solid #fc8181;border-radius:var(--radius);padding:14px 20px;margin-bottom:16px;color:#c53030;font-size:.85rem}
+.error-banner .close-btn{float:right;cursor:pointer;font-weight:700;font-size:1rem;color:#c53030;background:none;border:none}
+
+/* Config Panel (collapsible) */
+.section{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden}
+.section-toggle{width:100%;padding:12px 20px;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:.9rem;font-weight:600;color:var(--text)}
+.section-toggle:hover{background:#f7fafc}
+.section-toggle .arrow{font-size:.7rem;transition:transform .2s}
+.section.is-collapsed .collapsible-body{display:none}
+.section.is-collapsed .arrow{transform:rotate(-90deg)}
+.collapsible-body{padding:0 20px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.collapsible-body select{flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-size:.85rem;background:#fff}
+.collapsible-body select:focus{outline:none;border-color:var(--accent)}
+.btn-primary{padding:8px 18px;border:none;border-radius:7px;background:var(--accent);color:#fff;font-size:.85rem;font-weight:600;cursor:pointer}
+.btn-primary:hover{background:#2b6cb0}
+.btn-secondary{padding:8px 14px;border:1px solid var(--border);border-radius:7px;background:#fff;color:var(--text-mid);font-size:.82rem;cursor:pointer}
+.btn-secondary:hover{background:#f7fafc}
+
+/* Header */
 .header{background:linear-gradient(135deg,#1a365d,#2b6cb0);color:#fff;padding:16px 28px;display:flex;align-items:center;justify-content:space-between}
 .header h1{font-size:1.3rem;font-weight:700}
 .header .sub{font-size:.78rem;opacity:.8;margin-top:2px}
 .h-actions{display:flex;gap:8px}
 .h-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;padding:7px 14px;border-radius:7px;cursor:pointer;font-size:.8rem;transition:background .2s}
 .h-btn:hover{background:rgba(255,255,255,.22)}
+
+/* Container */
 .container{max-width:1500px;margin:0 auto;padding:20px}
+
+/* Control bar */
 .ctrl-bar{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 20px;margin-bottom:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
 .ctrl-group{display:flex;flex-direction:column;gap:3px}
 .ctrl-group label{font-size:.72rem;font-weight:600;color:var(--text-mid);text-transform:uppercase;letter-spacing:.3px}
@@ -34,6 +65,8 @@ body{font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;backgrou
 .dd-opt input[type="checkbox"]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
 .dd-opt .dd-count{margin-left:auto;font-size:.7rem;color:var(--text-light);background:var(--bg);padding:1px 8px;border-radius:10px}
 .dd-opt.all-opt{border-bottom:1px solid var(--border);margin-bottom:4px;padding-bottom:10px;font-weight:600}
+
+/* Cards */
 .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:16px}
 .card h2{font-size:.95rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:6px}
 .mch1-title{font-size:1.05rem;font-weight:700;padding:10px 0 6px;border-bottom:3px solid var(--accent);margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -41,6 +74,8 @@ body{font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;backgrou
 .link-cb{display:flex;align-items:center;gap:6px;margin-left:auto;font-size:.78rem;font-weight:400;color:var(--text-mid);cursor:pointer;user-select:none;white-space:nowrap}
 .link-cb input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
 .link-cb.active{color:var(--accent);font-weight:600}
+
+/* Slider */
 .tier-ctrl{background:#f8fafc;border:1px solid #edf2f7;border-radius:8px;padding:12px 14px;margin-bottom:14px}
 .tier-ctrl-label{font-size:.72rem;font-weight:600;color:var(--text-mid);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px}
 .slider-bar{position:relative;height:40px;margin:6px 0;cursor:crosshair}
@@ -60,9 +95,13 @@ body{font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;backgrou
 .ai-label{font-size:.68rem;color:var(--text-light);white-space:nowrap}
 .ai input{width:100%;padding:5px 7px;border:1px solid var(--border);border-radius:5px;font-size:.82rem;font-variant-numeric:tabular-nums}
 .ai input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(49,130,206,.12)}
+
+/* Tabs */
 .tab-bar{display:flex;gap:2px;margin-bottom:12px;background:var(--bg);border-radius:7px;padding:2px}
 .tab-btn{padding:6px 14px;border:none;background:transparent;border-radius:5px;cursor:pointer;font-size:.78rem;color:var(--text-light);transition:all .15s}
 .tab-btn.active{background:#fff;color:var(--text);box-shadow:var(--shadow);font-weight:600}
+
+/* Tables */
 .sum-table{width:100%;border-collapse:collapse;font-size:.82rem}
 .sum-table th{background:#edf2f7;padding:7px 8px;text-align:right;font-weight:700;color:var(--text-mid);font-size:.7rem;text-transform:uppercase;letter-spacing:.3px;border-bottom:2px solid var(--border);white-space:nowrap}
 .sum-table th:first-child,.sum-table th:nth-child(2),.sum-table th:nth-child(3){text-align:left}
@@ -98,68 +137,77 @@ body{font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;backgrou
 .chart-card canvas{max-height:260px}
 .chart-card h3{font-size:.85rem;margin-bottom:10px}
 
-/* Loading & Status overlays */
-#loadingOverlay{display:none;text-align:center;padding:60px 20px;color:var(--text-mid)}
-#loadingOverlay .spinner{display:inline-block;width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px}
-@keyframes spin{to{transform:rotate(360deg)}}
-#loadingOverlay p{font-size:.88rem}
-#errorBanner{display:none;background:#fff5f5;border:1px solid #fc8181;border-radius:var(--radius);padding:14px 20px;margin-bottom:16px;color:#c53030;font-size:.85rem}
-#errorBanner .close-btn{float:right;cursor:pointer;font-weight:700;font-size:1rem;color:#c53030;background:none;border:none}
-#noConfig{display:none;text-align:center;padding:60px 20px}
-#noConfig .icon{font-size:3rem;margin-bottom:12px}
-#noConfig h3{font-size:1.1rem;color:var(--text);margin-bottom:8px}
-#noConfig p{font-size:.85rem;color:var(--text-mid);margin-bottom:16px}
-#noConfig button{padding:10px 24px;border:none;border-radius:7px;background:var(--accent);color:#fff;font-size:.88rem;font-weight:600;cursor:pointer}
-
 @media(max-width:1100px){.charts-row{grid-template-columns:1fr 1fr}.ctrl-bar{flex-direction:column;align-items:stretch}}
 @media(max-width:768px){.charts-row{grid-template-columns:1fr}.container{padding:12px}.header{padding:14px 18px;flex-direction:column;gap:10px}.sum-table{font-size:.72rem}.sum-table th,.sum-table td{padding:5px 4px}.abs-inputs{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <p id="loadingText">กำลังโหลดข้อมูลจาก Tableau...</p>
+</div>
+
+<!-- Header -->
 <div class="header">
-<div><h1>📊 Price Tier Segmentation Tool</h1><div class="sub">แบ่งกลุ่มสินค้าตามช่วงราคา — ปรับ Tier แยกตามหมวด MCH1 | Sub-table: PrivateBrand & Brand</div></div>
-<div class="h-actions"><button class="h-btn" onclick="exportCSV()">📥 Export SKU</button><button class="h-btn" onclick="exportSummary()">📥 Export ตารางหมวดหมู่</button><button class="h-btn" onclick="resetBounds()">🔄 Reset Bounds</button><button class="h-btn" onclick="openConfig()">⚙️ Settings</button></div>
+  <div>
+    <h1>📊 Price Tier Segmentation Tool</h1>
+    <div class="sub">แบ่งกลุ่มสินค้าตามช่วงราคา — ปรับ Tier แยกตามหมวด MCH1 | Sub-table: Private Brand &amp; Brand</div>
+  </div>
+  <div class="h-actions">
+    <button class="h-btn" id="exportCSVTier">📥 Export SKU</button>
+    <button class="h-btn" id="exportSummaryBtn">📥 Export ตารางหมวดหมู่</button>
+    <button class="h-btn" id="resetBoundsBtn">🔄 Reset Bounds</button>
+  </div>
 </div>
 
 <div class="container">
-<!-- Loading Overlay -->
-<div id="loadingOverlay"><div class="spinner"></div><p id="loadingText">กำลังโหลดข้อมูลจาก Tableau...</p></div>
 
-<!-- Error Banner -->
-<div id="errorBanner"><button class="close-btn" onclick="hideError()">✕</button><span id="errorText"></span></div>
-
-<!-- No Config Placeholder -->
-<div id="noConfig">
-  <div class="icon">⚙️</div>
-  <h3>ยังไม่ได้ตั้งค่า</h3>
-  <p>เลือก Worksheet และ map column เพื่อเริ่มใช้งาน</p>
-  <button onclick="openConfig()">⚙️ ตั้งค่า</button>
+<!-- Config Panel (collapsible) -->
+<div class="section is-collapsed" id="configPanel">
+  <button class="section-toggle" data-target="configPanel">
+    <span>⚙️ Settings — เลือก Worksheet</span>
+    <span class="arrow">▼</span>
+  </button>
+  <div class="collapsible-body">
+    <select id="worksheetSelect"><option>-- เลือก Worksheet --</option></select>
+    <button class="btn-primary" id="loadDataBtn">Load Data</button>
+  </div>
 </div>
 
-<!-- Control Bar (MCH3 + MCH1 dropdowns) -->
+<!-- Error Banner -->
+<div class="error-banner" id="errorBanner">
+  <button class="close-btn" id="errorCloseBtn">✕</button>
+  <span id="errorText"></span>
+</div>
+
+<!-- Control Bar -->
 <div class="ctrl-bar" id="ctrlBar" style="display:none">
-<div class="ctrl-group" style="min-width:220px"><label>🏠 หมวดสินค้า (MCH3)</label>
-<div class="dd-wrap" id="dd3Wrap"><div class="dd-toggle" id="dd3Toggle" onclick="toggleDD3()"><span class="dd-text" id="dd3Text">-</span><span class="dd-arrow">▼</span></div><div class="dd-menu" id="dd3Menu"></div></div></div>
-<div class="ctrl-group" style="flex:1;min-width:260px"><label>📦 กลุ่มสินค้า (MCH1 Product Group)</label>
-<div class="dd-wrap" id="ddWrap"><div class="dd-toggle" id="ddToggle" onclick="toggleDD()"><span class="dd-text" id="ddText">-</span><span class="dd-arrow">▼</span></div><div class="dd-menu" id="ddMenu"></div></div></div>
+  <div class="ctrl-group" style="min-width:220px"><label>🏠 หมวดสินค้า (MCH3)</label>
+  <div class="dd-wrap" id="dd3Wrap"><div class="dd-toggle" id="dd3Toggle"><span class="dd-text" id="dd3Text">-</span><span class="dd-arrow">▼</span></div><div class="dd-menu" id="dd3Menu"></div></div></div>
+  <div class="ctrl-group" style="flex:1;min-width:260px"><label>📦 กลุ่มสินค้า (MCH1 Product Group)</label>
+  <div class="dd-wrap" id="ddWrap"><div class="dd-toggle" id="ddToggle"><span class="dd-text" id="ddText">-</span><span class="dd-arrow">▼</span></div><div class="dd-menu" id="ddMenu"></div></div></div>
 </div>
 
 <div id="summaryContainer"></div>
 
 <div class="charts-row" id="chartsRow" style="display:none">
-<div class="card chart-card"><h3>📊 SKU Count by Tier</h3><canvas id="chartBar"></canvas></div>
-<div class="card chart-card"><h3>🍩 % Share Sale Amt</h3><canvas id="chartDonut"></canvas></div>
-<div class="card chart-card"><h3>📈 กำไร% by Tier</h3><canvas id="chartProfit"></canvas></div>
+  <div class="card chart-card"><h3>📊 SKU Count by Tier</h3><canvas id="chartBar"></canvas></div>
+  <div class="card chart-card"><h3>🍩 % Share Sale Amt</h3><canvas id="chartDonut"></canvas></div>
+  <div class="card chart-card"><h3>📈 กำไร% by Tier</h3><canvas id="chartProfit"></canvas></div>
 </div>
 
 <div class="card" id="detailCard" style="display:none">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-<h2 style="margin:0">📋 รายละเอียด SKU (<span id="rowCount">0</span>)</h2>
-<div class="tbl-controls"><input class="search-box" id="searchBox" placeholder="🔍 ค้นหา..." oninput="renderDetail()">
-<div style="display:flex;gap:4px"><button class="f-chip sel" data-f="ALL" onclick="setDFilter('ALL')">ALL</button><button class="f-chip" data-f="ECO" onclick="setDFilter('ECO')">ECO</button><button class="f-chip" data-f="MASS" onclick="setDFilter('MASS')">MASS</button><button class="f-chip" data-f="PREMIUM" onclick="setDFilter('PREMIUM')">PREMIUM</button><button class="f-chip" data-f="LUXURY" onclick="setDFilter('LUXURY')">LUXURY</button></div></div></div>
-<div class="dtbl-wrap"><table class="d-table"><thead><tr><th onclick="sortD('sku')">SKU↕</th><th onclick="sortD('product')">Product↕</th><th onclick="sortD('mch3')">MCH3↕</th><th onclick="sortD('mch1')">MCH1↕</th><th onclick="sortD('brand')">Brand↕</th><th onclick="sortD('price')">Price↕</th><th onclick="sortD('saleAmt')">SaleAmt↕</th><th onclick="sortD('saleQty')">SaleQty↕</th><th onclick="sortD('profit')">Profit↕</th><th onclick="sortD('tier')">Tier↕</th></tr></thead><tbody id="dBody"></tbody></table></div></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+  <h2 style="margin:0">📋 รายละเอียด SKU (<span id="rowCount">0</span>)</h2>
+  <div class="tbl-controls"><input class="search-box" id="searchBox" placeholder="🔍 ค้นหา...">
+  <div style="display:flex;gap:4px"><button class="f-chip sel" data-f="ALL">ALL</button><button class="f-chip" data-f="ECO">ECO</button><button class="f-chip" data-f="MASS">MASS</button><button class="f-chip" data-f="PREMIUM">PREMIUM</button><button class="f-chip" data-f="LUXURY">LUXURY</button></div></div></div>
+  <div class="dtbl-wrap"><table class="d-table"><thead><tr><th data-col="sku">SKU↕</th><th data-col="product">Product↕</th><th data-col="mch3">MCH3↕</th><th data-col="mch1">MCH1↕</th><th data-col="brand">Brand↕</th><th data-col="price">Price↕</th><th data-col="saleAmt">SaleAmt↕</th><th data-col="saleQty">SaleQty↕</th><th data-col="profit">Profit↕</th><th data-col="tier">Tier↕</th></tr></thead><tbody id="dBody"></tbody></table></div>
 </div>
 
-<script src="./tier_segmentation.js"></script>
+</div><!-- .container -->
+
+<script src="tier_segmentation.js"></script>
 </body>
 </html>
