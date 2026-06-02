@@ -81,8 +81,18 @@
 
   function extractRecords(dataTable) {
     var colIndex = buildColumnIndex(dataTable.columns);
+    console.log("[TierSeg] Columns detected:", colIndex);
+    console.log("[TierSeg] Raw columns:", dataTable.columns.map(function (c, i) {
+      return i + ": " + (c.getFieldName ? c.getFieldName() : (c.fieldCaption || c.fieldName || "?"));
+    }));
     var rows = [];
     var data = dataTable.data;
+    console.log("[TierSeg] Total raw rows:", data.length);
+    if (data.length > 0) {
+      console.log("[TierSeg] First row sample:", data[0].map(function (cell) {
+        return { nativeValue: cell.nativeValue, value: cell.value };
+      }));
+    }
 
     for (var r = 0; r < data.length; r++) {
       var row = data[r];
@@ -241,8 +251,13 @@
       }
 
       var records = extractRecords(dataTable);
+      console.log("[TierSeg] Records extracted:", records.length);
+      if (records.length > 0) console.log("[TierSeg] First record:", records[0]);
       if (records.length === 0) {
-        showError("ไม่พบข้อมูลใน Worksheet \"" + ws.name + "\"");
+        var colNames = dataTable.columns.map(function (c, i) {
+          return i + ":" + (c.getFieldName ? c.getFieldName() : (c.fieldCaption || c.fieldName || "?"));
+        }).join(", ");
+        showError("ไม่พบข้อมูลใน Worksheet — columns: " + colNames);
         hideLoading();
         return;
       }
