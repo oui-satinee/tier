@@ -927,7 +927,7 @@
     var html = "";
     filtered.forEach(function (d) {
       var tier = getSKUTier(d);
-      var margin = d.margin ? d.margin.toFixed(2) + "%" : (d.saleAmt ? (d.profit / (d.saleAmt / 1.07) * 100).toFixed(2) + "%" : "-");
+      var margin = d.margin ? d.margin.toFixed(2) + "%" : "-";
       html += "<tr><td>" + d.sku + "</td><td><b>" + d.product + "</b></td><td>" + d.mch3 + "</td><td>" + d.mch1 + "</td>"
         + "<td>" + d.brand + " <span style=\"font-size:.72rem;color:var(--text-light);\">(" + d.flag + ")</span></td>"
         + "<td>฿" + fmt(d.price) + "</td><td>฿" + fmt(d.saleAmt) + "</td><td>" + fmt(d.saleQty) + "</td>"
@@ -942,7 +942,7 @@
     var filtered = getActiveData();
     var csv = "﻿SKU,Product,MCH3,MCH1,Brand,Flag,Price,Sale Amt,Sale Qty,Profit,Margin%,Tier\n";
     filtered.forEach(function (d) {
-      var margin = d.margin ? d.margin.toFixed(2) : (d.saleAmt ? (d.profit / (d.saleAmt / 1.07) * 100).toFixed(2) : 0);
+      var margin = d.margin ? d.margin.toFixed(2) : 0;
       csv += d.sku + ",\"" + d.product.replace(/"/g, '""') + "\"," + d.mch3 + "," + d.mch1 + "," + d.brand + "," + d.flag + "," + d.price + "," + d.saleAmt + "," + d.saleQty + "," + d.profit + "," + margin + "%," + getSKUTier(d) + "\n";
     });
     var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
