@@ -40,31 +40,48 @@
     return m ? m[1] : fieldName;
   }
 
+  function getColName(col) {
+    // Try multiple sources for the column name
+    var names = [];
+    if (col.getFieldName) {
+      try { var fn = col.getFieldName(); if (fn) names.push(fn); } catch(e) {}
+    }
+    if (col.fieldCaption) names.push(col.fieldCaption);
+    if (col.fieldName) names.push(col.fieldName);
+    return names;
+  }
+
   function buildColumnIndex(columns) {
     var index = {};
     var used = {};
 
     for (var ci = 0; ci < columns.length; ci++) {
       if (used[ci]) continue;
-      var raw = columns[ci].getFieldName
-        ? columns[ci].getFieldName()
-        : (columns[ci].fieldCaption || columns[ci].fieldName || "");
 
-      // 4-tier matching (same as marketbasket)
-      var stripped = stripAgg(raw);
-      var normRaw  = normalize(raw);
-      var normStr  = normalize(stripped);
+      // Get all possible names for this column
+      var names = getColName(columns[ci]);
+      // For each name, try raw + stripped versions
+      var candidates = [];
+      names.forEach(function (raw) {
+        candidates.push(raw);
+        var stripped = stripAgg(raw);
+        if (stripped !== raw) candidates.push(stripped);
+      });
 
       for (var field in COLUMN_MAP) {
         if (index[field] !== undefined) continue;
         var aliases = COLUMN_MAP[field];
-        for (var ai = 0; ai < aliases.length; ai++) {
+        var matched = false;
+
+        for (var ai = 0; ai < aliases.length && !matched; ai++) {
           var normAlias = normalize(aliases[ai]);
-          if (normRaw === normAlias || normStr === normAlias ||
-              normRaw.indexOf(normAlias) !== -1 || normStr.indexOf(normAlias) !== -1) {
-            index[field] = ci;
-            used[ci] = true;
-            break;
+          for (var ni = 0; ni < candidates.length && !matched; ni++) {
+            var normCand = normalize(candidates[ni]);
+            if (normCand === normAlias || normCand.indexOf(normAlias) !== -1) {
+              index[field] = ci;
+              used[ci] = true;
+              matched = true;
+            }
           }
         }
         if (used[ci]) break;
@@ -107,8 +124,15 @@
       var price   = parseNumber(get("price"));
       var saleAmt = parseNumber(get("saleAmt"));
       var saleQty = parseNumber(get("saleQty"));
+      var profit  = parseNumber(get("profit"));
 
-      if (price === 0 && saleAmt === 0 && saleQty === 0) continue;
+      // Skip completely empty rows (no numeric data at all)
+      if (price === 0 && saleAmt === 0 && saleQty === 0 && profit === 0) continue;
+
+      // If price is 0 but we have qty, estimate price from amt/qty
+      if (price === 0 && saleQty > 0 && saleAmt > 0) {
+        price = Math.round(saleAmt / saleQty);
+      }
 
       rows.push({
         sku:     String(get("sku") || "ROW-" + (r + 1)),
