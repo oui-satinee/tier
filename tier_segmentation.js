@@ -327,6 +327,7 @@
           S.data = records;
           rebuildIndex();
           setClear(S.mch3Sel);
+          getMCH3s().forEach(function (m) { setAdd(S.mch3Sel, m); });
 
           // Default MCH1 selection: กระจกห้องน้ำ (linked mode = single category)
           setClear(S.mch1Sel);
@@ -393,8 +394,7 @@
   function getMCH3s() { return _idx.mch3List; }
 
   function getActiveMCH3s() {
-    var sel = setFrom(S.mch3Sel);
-    return sel.length === 0 ? _idx.mch3List : sel;
+    return setFrom(S.mch3Sel);
   }
 
   function getMCH1s() {
@@ -409,10 +409,8 @@
   }
 
   function getActiveMCH1s() {
-    var activeMch3s = getActiveMCH3s();
     var available = getMCH1s();
     var sel = setFrom(S.mch1Sel);
-    if (sel.length === 0) return available;
     return sel.filter(function (m) { return available.indexOf(m) !== -1; });
   }
 
@@ -487,9 +485,9 @@
     var mch3s = getMCH3s();
     var fd = getFilteredData();
     var sel = setFrom(S.mch3Sel);
-    var allChecked = sel.length === 0 || sel.length === mch3s.length;
+    var allChecked = mch3s.length > 0 && sel.length === mch3s.length;
 
-    document.getElementById("dd3Text").textContent = sel.length === 0 ? "เลือกทั้งหมด" : sel.join(", ");
+    document.getElementById("dd3Text").textContent = sel.length === 0 ? "-" : (sel.length === mch3s.length ? "เลือกทั้งหมด" : sel.join(", "));
 
     var html = '<div class="dd-opt all-opt" data-mch3="__all__"><input type="checkbox" ' + (allChecked ? "checked" : "") + '><span>เลือกทั้งหมด</span><span class="dd-count">' + fd.length + " SKU</span></div>";
     mch3s.forEach(function (m) {
@@ -515,9 +513,9 @@
       });
     });
     var sel = setFrom(S.mch1Sel);
-    var allChecked = sel.length === 0 || sel.length === mch1s.length;
+    var allChecked = mch1s.length > 0 && sel.length === mch1s.length;
 
-    document.getElementById("ddText").textContent = sel.length === 0 ? "เลือกทั้งหมด" : sel.join(", ");
+    document.getElementById("ddText").textContent = sel.length === 0 ? "-" : (sel.length === mch1s.length ? "เลือกทั้งหมด" : sel.join(", "));
 
     var html = '<div class="dd-opt all-opt" data-mch1="__all__"><input type="checkbox" ' + (allChecked ? "checked" : "") + '><span>เลือกทั้งหมด</span><span class="dd-count">' + totalActive + " SKU</span></div>";
     mch1s.forEach(function (m) {
@@ -876,8 +874,8 @@
       html += "<div class=\"card\" style=\"margin-bottom:24px;\">"
         + "<div class=\"mch1-title\"><div class=\"mch1-icon\"></div>"
         + "<span style=\"font-size:1.1rem;color:var(--text)\">หมวดหมู่: <b>" + m + "</b> (" + catData.length + " SKU)</span>"
-        + "<label class=\"link-cb " + (S.mch1Linked[m] ? "active" : "") + "\">"
-        + "<input type=\"checkbox\" class=\"link-cb-input\" data-mch1=\"" + m + "\"" + (S.mch1Linked[m] ? " checked" : "") + "> 🔗 เชื่อมโยงเกณฑ์ราคากลาง</label></div>"
+        + "<div class=\"link-cb " + (S.mch1Linked[m] ? "active" : "") + "\">"
+        + "<input type=\"checkbox\" class=\"link-cb-input\" data-mch1=\"" + m + "\"" + (S.mch1Linked[m] ? " checked" : "") + "> 🔗 เชื่อมโยงเกณฑ์ราคากลาง</div></div>"
 
         + "<div class=\"tier-ctrl\" data-mch1=\"" + m + "\">"
         + "<div class=\"tier-ctrl-label\">🎛️ ช่วงราคา (ECO → MASS → PREMIUM → LUXURY) — ลากจุดกลมเพื่อปรับ</div>"
