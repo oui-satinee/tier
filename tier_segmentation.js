@@ -199,91 +199,96 @@
     if (!ws) {
       showDashboard(false);
       hideLoading();
+      showError("ไม่พบ Worksheet \"" + S.worksheetName + "\"");
       return;
     }
 
     showLoading("กำลังอ่านข้อมูลจาก Worksheet \"" + ws.name + "\"...");
     hideError();
 
-    var dataPromise;
+    try {
+      var dataPromise;
 
-    // Primary: getSummaryDataAsync (simpler, more compatible)
-    if (typeof ws.getSummaryDataAsync === "function") {
-      dataPromise = ws.getSummaryDataAsync().then(function (dataTable) {
-        return { columns: dataTable.columns, data: dataTable.data };
-      });
-    } else if (typeof ws.getSummaryDataReaderAsync === "function") {
-      // Fallback: DataReader (paginated)
-      dataPromise = ws.getSummaryDataReaderAsync(10000).then(function (reader) {
-        var allData = [];
-        var allColumns = null;
-
-        function readPage(pageIndex) {
-          return reader.getPageAsync(pageIndex).then(function (pageData) {
-            if (!allColumns && pageData.columns) allColumns = pageData.columns;
-            if (pageData && pageData.data) {
-              for (var i = 0; i < pageData.data.length; i++) {
-                allData.push(pageData.data[i]);
-              }
-            }
-            if (pageIndex + 1 < reader.totalPageCount) {
-              return readPage(pageIndex + 1);
-            }
-            return { columns: allColumns, data: allData };
-          });
-        }
-
-        return readPage(0).then(function (result) {
-          return reader.releaseAsync().then(function () { return result; });
+      // Primary: getSummaryDataAsync (simpler, more compatible)
+      if (typeof ws.getSummaryDataAsync === "function") {
+        dataPromise = ws.getSummaryDataAsync().then(function (dataTable) {
+          return { columns: dataTable.columns, data: dataTable.data };
         });
+      } else if (typeof ws.getSummaryDataReaderAsync === "function") {
+        dataPromise = ws.getSummaryDataReaderAsync(10000).then(function (reader) {
+          var allData = [];
+          var allColumns = null;
+
+          function readPage(pageIndex) {
+            return reader.getPageAsync(pageIndex).then(function (pageData) {
+              if (!allColumns && pageData.columns) allColumns = pageData.columns;
+              if (pageData && pageData.data) {
+                for (var i = 0; i < pageData.data.length; i++) allData.push(pageData.data[i]);
+              }
+              if (pageIndex + 1 < reader.totalPageCount) return readPage(pageIndex + 1);
+              return { columns: allColumns, data: allData };
+            });
+          }
+
+          return readPage(0).then(function (result) {
+            return reader.releaseAsync().then(function () { return result; });
+          });
+        });
+      } else {
+        showError("Worksheet does not support data reading API");
+        hideLoading();
+        return;
+      }
+
+      dataPromise.then(function (dataTable) {
+        try {
+          if (!dataTable || !dataTable.columns) {
+            showError("ไม่สามารถอ่านข้อมูล — dataTable หรือ columns เป็น null");
+            hideLoading();
+            return;
+          }
+
+          var colNames = dataTable.columns.map(function (c, i) {
+            return i + ": " + (c.getFieldName ? c.getFieldName() : (c.fieldCaption || c.fieldName || "?"));
+          });
+
+          var records = extractRecords(dataTable);
+
+          if (records.length === 0) {
+            showError("ไม่พบข้อมูลที่ extract ได้ (rows: " + dataTable.data.length + ") — columns: " + colNames.join(" | "));
+            hideLoading();
+            return;
+          }
+
+          // Reset state
+          S.data = records;
+          setClear(S.mch3Sel);
+          setClear(S.mch1Sel);
+          S.mch1Bounds = {};
+          S.mch1Linked = {};
+          S.tableView  = {};
+          S.dFilter    = "ALL";
+          S.sortCol    = null;
+          S.sortDir    = "asc";
+
+          hideError();
+          hideLoading();
+          showDashboard(true);
+          initBounds();
+          updateAll();
+
+        } catch (innerErr) {
+          showError("ข้อผิดพลาดในการประมวลผลข้อมูล: " + innerErr.message);
+          hideLoading();
+        }
+      }).catch(function (err) {
+        showError("ไม่สามารถโหลดข้อมูลจาก Worksheet: " + (err.message || err));
+        hideLoading();
       });
-    } else {
-      showError("Worksheet does not support data reading API");
+    } catch (outerErr) {
+      showError("ข้อผิดพลาด: " + outerErr.message);
       hideLoading();
-      return;
     }
-
-    dataPromise.then(function (dataTable) {
-      if (!dataTable || !dataTable.columns) {
-        showError("ไม่สามารถอ่านข้อมูลจาก Worksheet \"" + ws.name + "\" ได้");
-        hideLoading();
-        return;
-      }
-
-      var records = extractRecords(dataTable);
-      console.log("[TierSeg] Records extracted:", records.length);
-      if (records.length > 0) console.log("[TierSeg] First record:", records[0]);
-      if (records.length === 0) {
-        var colNames = dataTable.columns.map(function (c, i) {
-          return i + ":" + (c.getFieldName ? c.getFieldName() : (c.fieldCaption || c.fieldName || "?"));
-        }).join(", ");
-        showError("ไม่พบข้อมูลใน Worksheet — columns: " + colNames);
-        hideLoading();
-        return;
-      }
-
-      // Reset state
-      S.data = records;
-      setClear(S.mch3Sel);
-      setClear(S.mch1Sel);
-      S.mch1Bounds = {};
-      S.mch1Linked = {};
-      S.tableView  = {};
-      S.dFilter    = "ALL";
-      S.sortCol    = null;
-      S.sortDir    = "asc";
-
-      hideError();
-      hideLoading();
-      showDashboard(true);
-      initBounds();
-      updateAll();
-
-    }).catch(function (err) {
-      console.error("Error loading worksheet data:", err);
-      showError("เกิดข้อผิดพลาด: " + (err.message || err));
-      hideLoading();
-    });
   }
 
   // ─── Tableau: Event Listeners ─────────────────────────────
@@ -875,11 +880,15 @@
 
   // ─── Master Update ───────────────────────────────────────
   function updateAll() {
-    renderDropdownMCH3();
-    renderDropdown();
-    renderSummary();
-    renderCharts();
-    renderDetail();
+    try {
+      renderDropdownMCH3();
+      renderDropdown();
+      renderSummary();
+      renderCharts();
+      renderDetail();
+    } catch (err) {
+      showError("render error: " + err.message + " (line " + (err.lineNumber || "?") + ")");
+    }
   }
 
   function resetBounds() {
