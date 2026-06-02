@@ -209,15 +209,12 @@
     try {
       var dataPromise;
 
-      // Primary: getSummaryDataAsync (simpler, more compatible)
-      if (typeof ws.getSummaryDataAsync === "function") {
-        dataPromise = ws.getSummaryDataAsync().then(function (dataTable) {
-          return { columns: dataTable.columns, data: dataTable.data };
-        });
-      } else if (typeof ws.getSummaryDataReaderAsync === "function") {
-        dataPromise = ws.getSummaryDataReaderAsync(10000).then(function (reader) {
+      // Primary: DataReader (handles large datasets with pagination)
+      if (typeof ws.getSummaryDataReaderAsync === "function") {
+        dataPromise = ws.getSummaryDataReaderAsync().then(function (reader) {
           var allData = [];
           var allColumns = null;
+          var totalPages = reader.totalPageCount;
 
           function readPage(pageIndex) {
             return reader.getPageAsync(pageIndex).then(function (pageData) {
@@ -225,7 +222,8 @@
               if (pageData && pageData.data) {
                 for (var i = 0; i < pageData.data.length; i++) allData.push(pageData.data[i]);
               }
-              if (pageIndex + 1 < reader.totalPageCount) return readPage(pageIndex + 1);
+              showLoading("กำลังอ่านข้อมูล... " + allData.length + " rows (" + (pageIndex + 1) + "/" + totalPages + " pages)");
+              if (pageIndex + 1 < totalPages) return readPage(pageIndex + 1);
               return { columns: allColumns, data: allData };
             });
           }
@@ -233,6 +231,11 @@
           return readPage(0).then(function (result) {
             return reader.releaseAsync().then(function () { return result; });
           });
+        });
+      } else if (typeof ws.getSummaryDataAsync === "function") {
+        // Fallback: simpler API (may have row limits)
+        dataPromise = ws.getSummaryDataAsync().then(function (dataTable) {
+          return { columns: dataTable.columns, data: dataTable.data };
         });
       } else {
         showError("Worksheet does not support data reading API");
@@ -463,10 +466,13 @@
 
   function startSliderDrag(e, mch1, idx) {
     e.preventDefault();
+    e.stopPropagation();
     _drag = { mch1: mch1, idx: idx };
     e.target.classList.add("dragging");
     document.addEventListener("mousemove", doSliderDrag);
     document.addEventListener("mouseup", endSliderDrag);
+    document.addEventListener("touchmove", doSliderDragTouch, { passive: false });
+    document.addEventListener("touchend", endSliderDrag);
   }
 
   function doSliderDrag(e) {
@@ -488,6 +494,27 @@
     updateSliderDOM(_drag.mch1, bounds, max);
   }
 
+  function doSliderDragTouch(e) {
+    e.preventDefault();
+    if (!_drag) return;
+    var touch = e.touches[0];
+    var bar = document.querySelector('.slider-bar[data-mch1="' + _drag.mch1 + '"]');
+    if (!bar) return;
+    var rect = bar.getBoundingClientRect();
+    var max = parseFloat(bar.dataset.max);
+    var pct = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
+    var val = Math.round(pct * max);
+
+    var bounds = (S.mch1Bounds[_drag.mch1] || [0, 0, 0]).slice();
+    if (_drag.idx === 0) bounds[0] = Math.min(val, bounds[1]);
+    else if (_drag.idx === 1) bounds[1] = Math.max(bounds[0], Math.min(val, bounds[2]));
+    else bounds[2] = Math.max(bounds[1], val);
+
+    S.mch1Bounds[_drag.mch1] = bounds;
+    propagateBounds(_drag.mch1, bounds);
+    updateSliderDOM(_drag.mch1, bounds, max);
+  }
+
   function endSliderDrag() {
     if (_drag) {
       document.querySelectorAll(".slider-handle.dragging").forEach(function (h) { h.classList.remove("dragging"); });
@@ -495,6 +522,8 @@
       _drag = null;
       document.removeEventListener("mousemove", doSliderDrag);
       document.removeEventListener("mouseup", endSliderDrag);
+      document.removeEventListener("touchmove", doSliderDragTouch);
+      document.removeEventListener("touchend", endSliderDrag);
       updateAll();
     }
   }
@@ -598,7 +627,8 @@
 
     catData.forEach(function (d) {
       var tier = assignTier(d.price, bounds);
-      var bt = d.flag === "Private Brand" ? "pb" : "mb";
+      var flagLower = (d.flag || "").toLowerCase();
+      var bt = (flagLower.indexOf("private") !== -1 || flagLower.indexOf("pb") !== -1) ? "pb" : "mb";
       results[tier][bt].sku++; results[tier][bt].amt += d.saleAmt; results[tier][bt].qty += d.saleQty; results[tier][bt].profit += d.profit;
       results[tier].total.sku++; results[tier].total.amt += d.saleAmt; results[tier].total.qty += d.saleQty; results[tier].total.profit += d.profit;
       tot.sku++; tot.amt += d.saleAmt; tot.qty += d.saleQty; tot.profit += d.profit;

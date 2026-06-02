@@ -81,9 +81,10 @@ body{font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;backgrou
 .slider-bar{position:relative;height:40px;margin:6px 0;cursor:crosshair}
 .slider-track{position:absolute;top:14px;left:0;right:0;height:12px;border-radius:6px;overflow:hidden;display:flex}
 .slider-track .seg{height:100%;transition:width .15s}
-.slider-handle{position:absolute;top:20px;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:50%;background:#fff;border:3px solid #4a5568;cursor:grab;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.22);touch-action:none;transition:box-shadow .15s,border-color .15s}
+.slider-handle{position:absolute;top:20px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid #4a5568;cursor:grab;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.22);touch-action:none;transition:box-shadow .15s,border-color .15s)}
 .slider-handle:hover,.slider-handle.dragging{border-color:var(--accent);box-shadow:0 2px 14px rgba(49,130,206,.35)}
-.slider-handle.dragging{cursor:grabbing;width:32px;height:32px}
+.slider-handle.dragging{cursor:grabbing;width:26px;height:26px}
+.slider-bar{cursor:crosshair}
 .slider-handle.h-eco{border-color:var(--eco)}.slider-handle.h-eco:hover,.slider-handle.h-eco.dragging{border-color:var(--eco);box-shadow:0 2px 14px rgba(39,174,96,.35)}
 .slider-handle.h-mass{border-color:var(--mass)}.slider-handle.h-mass:hover,.slider-handle.h-mass.dragging{border-color:var(--mass);box-shadow:0 2px 14px rgba(41,128,185,.35)}
 .slider-handle.h-prem{border-color:var(--premium)}.slider-handle.h-prem:hover,.slider-handle.h-prem.dragging{border-color:var(--premium);box-shadow:0 2px 14px rgba(230,126,34,.35)}
