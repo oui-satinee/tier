@@ -499,28 +499,15 @@
     document.addEventListener("touchend", endSliderDrag);
   }
 
-  // Use logarithmic scale for slider — easier to drag on wide price ranges
-  function pctToVal(pct, max) {
-    if (max <= 0) return 0;
-    // log scale: maps 0-1% to 0-max with more resolution at lower values
-    var logMax = Math.log(max + 1);
-    return Math.round(Math.exp(pct * logMax) - 1);
-  }
-
-  function valToPct(val, max) {
-    if (max <= 0) return 0;
-    var logMax = Math.log(max + 1);
-    return Math.log(val + 1) / logMax;
-  }
-
   function doSliderDrag(e) {
     if (!_drag) return;
     var bar = document.querySelector('.slider-bar[data-mch1="' + _drag.mch1 + '"]');
     if (!bar) return;
     var rect = bar.getBoundingClientRect();
     var max = parseFloat(bar.dataset.max);
+    if (max <= 0) return;
     var pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    var val = Math.min(pctToVal(pct, max), max);
+    var val = Math.round(pct * max);
 
     var bounds = (S.mch1Bounds[_drag.mch1] || [0, 0, 0]).slice();
     if (_drag.idx === 0) bounds[0] = Math.min(val, bounds[1]);
@@ -528,7 +515,6 @@
     else bounds[2] = Math.max(bounds[1], val);
 
     S.mch1Bounds[_drag.mch1] = bounds;
-    // During drag: only update visual, don't re-render tables
     updateSliderDOM(_drag.mch1, bounds, max);
     propagateBounds(_drag.mch1, bounds);
   }
@@ -541,8 +527,9 @@
     if (!bar) return;
     var rect = bar.getBoundingClientRect();
     var max = parseFloat(bar.dataset.max);
+    if (max <= 0) return;
     var pct = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
-    var val = Math.min(pctToVal(pct, max), max);
+    var val = Math.round(pct * max);
 
     var bounds = (S.mch1Bounds[_drag.mch1] || [0, 0, 0]).slice();
     if (_drag.idx === 0) bounds[0] = Math.min(val, bounds[1]);
@@ -572,29 +559,24 @@
     if (!tc) return;
     var b0 = bounds[0], b1 = bounds[1], b2 = bounds[2];
 
-    // Use log scale for positioning
-    var p0 = valToPct(b0, max) * 100;
-    var p1 = valToPct(b1, max) * 100;
-    var p2 = valToPct(b2, max) * 100;
-
     tc.querySelectorAll(".slider-handle").forEach(function (h) {
       var i = parseInt(h.dataset.idx);
-      h.style.left = [p0, p1, p2][i] + "%";
+      h.style.left = [b0, b1, b2][i] / max * 100 + "%";
     });
     var segs = tc.querySelectorAll(".slider-track .seg");
     if (segs.length === 4) {
-      segs[0].style.width = p0 + "%";
-      segs[1].style.width = (p1 - p0) + "%";
-      segs[2].style.width = (p2 - p1) + "%";
-      segs[3].style.width = (100 - p2) + "%";
+      segs[0].style.width = b0 / max * 100 + "%";
+      segs[1].style.width = (b1 - b0) / max * 100 + "%";
+      segs[2].style.width = (b2 - b1) / max * 100 + "%";
+      segs[3].style.width = (max - b2) / max * 100 + "%";
     }
     function lbl(cls, txt, left) {
       var el = tc.querySelector("." + cls);
       if (el) { el.textContent = txt; el.style.left = left + "%"; }
     }
-    lbl("lbl-eco",  "ECO: ฿" + b0.toLocaleString(), p0);
-    lbl("lbl-mass", "MASS: ฿" + b1.toLocaleString(), p1);
-    lbl("lbl-prem", "PREM: ฿" + b2.toLocaleString(), p2);
+    lbl("lbl-eco",  "ECO: ฿" + b0.toLocaleString(), b0 / max * 100);
+    lbl("lbl-mass", "MASS: ฿" + b1.toLocaleString(), b1 / max * 100);
+    lbl("lbl-prem", "PREM: ฿" + b2.toLocaleString(), b2 / max * 100);
 
     var ai = tc.querySelectorAll(".ai input:not([disabled])");
     if (ai[0]) { ai[0].value = b0; ai[0].max = b1; }
@@ -789,11 +771,6 @@
       var b0 = bounds[0], b1 = bounds[1], b2 = bounds[2];
       var view = S.tableView[m] || "simple";
 
-      // Log scale positions for slider rendering
-      var p0 = valToPct(b0, max) * 100;
-      var p1 = valToPct(b1, max) * 100;
-      var p2 = valToPct(b2, max) * 100;
-
       var tableContent;
       if (view === "simple") tableContent = buildSimpleTableContent(catData, bounds);
       else if (view === "detailed") tableContent = buildSummaryTableContent(catData, bounds);
@@ -815,20 +792,20 @@
         + "<div class=\"tier-ctrl-label\">🎛️ ช่วงราคา (ECO → MASS → PREMIUM → LUXURY) — ลากจุดกลมเพื่อปรับ</div>"
         + "<div class=\"slider-labels\" style=\"position:relative;height:18px;margin-bottom:4px;\">"
         + "<span style=\"left:0%;position:absolute;\">฿0</span>"
-        + "<span class=\"lbl-eco\" style=\"left:" + p0 + "%;position:absolute;transform:translateX(-50%);color:var(--eco);font-weight:600;\">ECO: ฿" + b0.toLocaleString() + "</span>"
-        + "<span class=\"lbl-mass\" style=\"left:" + p1 + "%;position:absolute;transform:translateX(-50%);color:var(--mass);font-weight:600;\">MASS: ฿" + b1.toLocaleString() + "</span>"
-        + "<span class=\"lbl-prem\" style=\"left:" + p2 + "%;position:absolute;transform:translateX(-50%);color:var(--premium);font-weight:600;\">PREM: ฿" + b2.toLocaleString() + "</span>"
+        + "<span class=\"lbl-eco\" style=\"left:" + (b0/max*100) + "%;position:absolute;transform:translateX(-50%);color:var(--eco);font-weight:600;\">ECO: ฿" + b0.toLocaleString() + "</span>"
+        + "<span class=\"lbl-mass\" style=\"left:" + (b1/max*100) + "%;position:absolute;transform:translateX(-50%);color:var(--mass);font-weight:600;\">MASS: ฿" + b1.toLocaleString() + "</span>"
+        + "<span class=\"lbl-prem\" style=\"left:" + (b2/max*100) + "%;position:absolute;transform:translateX(-50%);color:var(--premium);font-weight:600;\">PREM: ฿" + b2.toLocaleString() + "</span>"
         + "<span style=\"right:0%;position:absolute;\">Max: ฿" + max.toLocaleString() + "</span></div>"
 
         + "<div class=\"slider-bar\" data-mch1=\"" + m + "\" data-max=\"" + max + "\" style=\"position:relative;height:40px;background:#e2e8f0;border-radius:6px;overflow:visible;\">"
         + "<div class=\"slider-track\" style=\"position:absolute;top:14px;left:0;right:0;height:12px;display:flex;border-radius:6px;overflow:hidden;\">"
-        + "<div class=\"seg\" style=\"width:" + p0 + "%;background:var(--eco-bg);height:100%;\"></div>"
-        + "<div class=\"seg\" style=\"width:" + (p1 - p0) + "%;background:var(--mass-bg);height:100%;\"></div>"
-        + "<div class=\"seg\" style=\"width:" + (p2 - p1) + "%;background:var(--premium-bg);height:100%;\"></div>"
-        + "<div class=\"seg\" style=\"width:" + (100 - p2) + "%;background:var(--luxury-bg);height:100%;\"></div></div>"
-        + "<div class=\"slider-handle h-eco\" data-idx=\"0\" style=\"left:" + p0 + "%\" data-mch1=\"" + m + "\" data-drag-idx=\"0\"></div>"
-        + "<div class=\"slider-handle h-mass\" data-idx=\"1\" style=\"left:" + p1 + "%\" data-mch1=\"" + m + "\" data-drag-idx=\"1\"></div>"
-        + "<div class=\"slider-handle h-prem\" data-idx=\"2\" style=\"left:" + p2 + "%\" data-mch1=\"" + m + "\" data-drag-idx=\"2\"></div></div>"
+        + "<div class=\"seg\" style=\"width:" + (b0/max*100) + "%;background:var(--eco-bg);height:100%;\"></div>"
+        + "<div class=\"seg\" style=\"width:" + ((b1-b0)/max*100) + "%;background:var(--mass-bg);height:100%;\"></div>"
+        + "<div class=\"seg\" style=\"width:" + ((b2-b1)/max*100) + "%;background:var(--premium-bg);height:100%;\"></div>"
+        + "<div class=\"seg\" style=\"width:" + ((max-b2)/max*100) + "%;background:var(--luxury-bg);height:100%;\"></div></div>"
+        + "<div class=\"slider-handle h-eco\" data-idx=\"0\" style=\"left:" + (b0/max*100) + "%\" data-mch1=\"" + m + "\" data-drag-idx=\"0\"></div>"
+        + "<div class=\"slider-handle h-mass\" data-idx=\"1\" style=\"left:" + (b1/max*100) + "%\" data-mch1=\"" + m + "\" data-drag-idx=\"1\"></div>"
+        + "<div class=\"slider-handle h-prem\" data-idx=\"2\" style=\"left:" + (b2/max*100) + "%\" data-mch1=\"" + m + "\" data-drag-idx=\"2\"></div></div>"
 
         + "<div class=\"abs-inputs\">"
         + "<div class=\"ai\"><div class=\"ai-dot\" style=\"background:var(--eco)\"></div><span class=\"ai-label\">Max ECO</span><input type=\"number\" min=\"0\" max=\"" + b1 + "\" value=\"" + b0 + "\" data-abs-mch1=\"" + m + "\" data-abs-idx=\"0\"></div>"
