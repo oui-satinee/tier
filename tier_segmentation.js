@@ -461,7 +461,7 @@
     var html = '<div class="dd-opt all-opt" data-mch3="__all__"><input type="checkbox" ' + (allChecked ? "checked" : "") + '><span>เลือกทั้งหมด</span><span class="dd-count">' + fd.length + " SKU</span></div>";
     mch3s.forEach(function (m) {
       var checked = setHas(S.mch3Sel, m);
-      var count = fd.filter(function (d) { return d.mch3 === m; }).length;
+      var count = (_idx.byMch3[m] || []).length;
       html += '<div class="dd-opt" data-mch3="' + m + '"><input type="checkbox" ' + (checked ? "checked" : "") + "><span>" + m + "</span><span class=\"dd-count\">" + count + " SKU</span></div>";
     });
     document.getElementById("dd3Menu").innerHTML = html;
@@ -479,7 +479,7 @@
     var html = '<div class="dd-opt all-opt" data-mch1="__all__"><input type="checkbox" ' + (allChecked ? "checked" : "") + '><span>เลือกทั้งหมด</span><span class="dd-count">' + fd.length + " SKU</span></div>";
     mch1s.forEach(function (m) {
       var checked = setHas(S.mch1Sel, m);
-      var count = fd.filter(function (d) { return d.mch1 === m; }).length;
+      var count = (_idx.byMch1[m] || []).length;
       html += '<div class="dd-opt" data-mch1="' + m + '"><input type="checkbox" ' + (checked ? "checked" : "") + "><span>" + m + "</span><span class=\"dd-count\">" + count + " SKU</span></div>";
     });
     document.getElementById("ddMenu").innerHTML = html;
@@ -1029,6 +1029,16 @@
     });
 
     // Delegated events for dynamic content
+
+    // Slider handles need mousedown (not click) for drag
+    document.getElementById("summaryContainer").addEventListener("mousedown", function (e) {
+      var handle = e.target.closest(".slider-handle");
+      if (handle) {
+        startSliderDrag(e, handle.dataset.mch1, parseInt(handle.dataset.dragIdx));
+        return;
+      }
+    });
+
     document.getElementById("summaryContainer").addEventListener("click", function (e) {
       // MCH3 dropdown options
       var dd3Opt = e.target.closest("[data-mch3]");
@@ -1059,13 +1069,6 @@
           setToggle(S.mch1Sel, mch1);
         }
         updateAll();
-        return;
-      }
-
-      // Slider handles
-      var handle = e.target.closest(".slider-handle");
-      if (handle) {
-        startSliderDrag(e, handle.dataset.mch1, parseInt(handle.dataset.dragIdx));
         return;
       }
 
