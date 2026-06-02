@@ -470,16 +470,26 @@
   function renderDropdown() {
     var mch1s = getMCH1s();
     var activeMch3s = getActiveMCH3s();
-    var fd = getFilteredData().filter(function (d) { return activeMch3s.indexOf(d.mch3) !== -1; });
+    // Count per MCH1 filtered by active MCH3s using index
+    var totalActive = 0;
+    var countsByMch1 = {};
+    activeMch3s.forEach(function (m3) {
+      var items = _idx.byMch3[m3] || [];
+      items.forEach(function (d) {
+        if (!countsByMch1[d.mch1]) countsByMch1[d.mch1] = 0;
+        countsByMch1[d.mch1]++;
+        totalActive++;
+      });
+    });
     var sel = setFrom(S.mch1Sel);
     var allChecked = sel.length === 0 || sel.length === mch1s.length;
 
     document.getElementById("ddText").textContent = sel.length === 0 ? "เลือกทั้งหมด" : sel.join(", ");
 
-    var html = '<div class="dd-opt all-opt" data-mch1="__all__"><input type="checkbox" ' + (allChecked ? "checked" : "") + '><span>เลือกทั้งหมด</span><span class="dd-count">' + fd.length + " SKU</span></div>";
+    var html = '<div class="dd-opt all-opt" data-mch1="__all__"><input type="checkbox" ' + (allChecked ? "checked" : "") + '><span>เลือกทั้งหมด</span><span class="dd-count">' + totalActive + " SKU</span></div>";
     mch1s.forEach(function (m) {
       var checked = setHas(S.mch1Sel, m);
-      var count = (_idx.byMch1[m] || []).length;
+      var count = countsByMch1[m] || 0;
       html += '<div class="dd-opt" data-mch1="' + m + '"><input type="checkbox" ' + (checked ? "checked" : "") + "><span>" + m + "</span><span class=\"dd-count\">" + count + " SKU</span></div>";
     });
     document.getElementById("ddMenu").innerHTML = html;
@@ -1005,10 +1015,11 @@
       }
     });
 
-    // Delegated events for dynamic content
+    // Delegated events for dynamic content — use document level
+    // so both ctrlBar (dropdowns) and summaryContainer (tables/sliders) are caught
 
     // Slider handles need mousedown (not click) for drag
-    document.getElementById("summaryContainer").addEventListener("mousedown", function (e) {
+    document.addEventListener("mousedown", function (e) {
       var handle = e.target.closest(".slider-handle");
       if (handle) {
         startSliderDrag(e, handle.dataset.mch1, parseInt(handle.dataset.dragIdx));
@@ -1016,7 +1027,7 @@
       }
     });
 
-    document.getElementById("summaryContainer").addEventListener("click", function (e) {
+    document.addEventListener("click", function (e) {
       // MCH3 dropdown options
       var dd3Opt = e.target.closest("[data-mch3]");
       if (dd3Opt) {
