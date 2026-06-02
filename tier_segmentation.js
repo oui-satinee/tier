@@ -28,7 +28,8 @@
     price:    ["price", "unit_price", "unitprice", "selling_price", "sellingprice", "avg_price"],
     saleAmt:  ["sale_amt", "saleamt", "sales_amount", "salesamount", "revenue", "sales", "amount", "sale"],
     saleQty:  ["sale_qty", "saleqty", "sales_qty", "salesqty", "quantity", "qty", "units_sold", "unitssold"],
-    profit:   ["profit", "gross_profit", "grossprofit", "margin_amount", "marginamount"]
+    profit:   ["profit", "gross_profit", "grossprofit", "margin_amount", "marginamount"],
+    margin:   ["margin", "margin%", "marginpct", "margin_percent", "marginpercent", "margin_rate"]
   };
 
   function normalize(name) {
@@ -144,7 +145,8 @@
         price:   price,
         saleAmt: saleAmt,
         saleQty: saleQty,
-        profit:  parseNumber(get("profit"))
+        profit:  profit,
+        margin:  parseNumber(get("margin"))
       });
     }
     return rows;
@@ -925,7 +927,7 @@
     var html = "";
     filtered.forEach(function (d) {
       var tier = getSKUTier(d);
-      var margin = d.saleAmt ? (d.profit / d.saleAmt * 100).toFixed(2) + "%" : "-";
+      var margin = d.margin ? d.margin.toFixed(2) + "%" : (d.saleAmt ? (d.profit / d.saleAmt * 100).toFixed(2) + "%" : "-");
       html += "<tr><td>" + d.sku + "</td><td><b>" + d.product + "</b></td><td>" + d.mch3 + "</td><td>" + d.mch1 + "</td>"
         + "<td>" + d.brand + " <span style=\"font-size:.72rem;color:var(--text-light);\">(" + d.flag + ")</span></td>"
         + "<td>฿" + fmt(d.price) + "</td><td>฿" + fmt(d.saleAmt) + "</td><td>" + fmt(d.saleQty) + "</td>"
@@ -940,7 +942,7 @@
     var filtered = getActiveData();
     var csv = "﻿SKU,Product,MCH3,MCH1,Brand,Flag,Price,Sale Amt,Sale Qty,Profit,Margin%,Tier\n";
     filtered.forEach(function (d) {
-      var margin = d.saleAmt ? (d.profit / d.saleAmt * 100).toFixed(2) : 0;
+      var margin = d.margin ? d.margin.toFixed(2) : (d.saleAmt ? (d.profit / d.saleAmt * 100).toFixed(2) : 0);
       csv += d.sku + ",\"" + d.product.replace(/"/g, '""') + "\"," + d.mch3 + "," + d.mch1 + "," + d.brand + "," + d.flag + "," + d.price + "," + d.saleAmt + "," + d.saleQty + "," + d.profit + "," + margin + "%," + getSKUTier(d) + "\n";
     });
     var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
