@@ -325,7 +325,14 @@
           S.data = records;
           rebuildIndex();
           setClear(S.mch3Sel);
+
+          // Default MCH1 selection: กระจกห้องน้ำ + ก๊อกทรงสูง
           setClear(S.mch1Sel);
+          var defaultMch1 = ["กระจกห้องน้ำ", "ก๊อกทรงสูง"];
+          defaultMch1.forEach(function (m) {
+            if (_idx.byMch1[m]) setAdd(S.mch1Sel, m);
+          });
+
           S.mch1Bounds = {};
           S.mch1Linked = {};
           S.tableView  = {};
