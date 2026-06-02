@@ -328,9 +328,9 @@
           rebuildIndex();
           setClear(S.mch3Sel);
 
-          // Default MCH1 selection: กระจกห้องน้ำ + ก๊อกทรงสูง
+          // Default MCH1 selection: กระจกห้องน้ำ (linked mode = single category)
           setClear(S.mch1Sel);
-          var defaultMch1 = ["กระจกห้องน้ำ", "ก๊อกทรงสูง"];
+          var defaultMch1 = ["กระจกห้องน้ำ"];
           defaultMch1.forEach(function (m) {
             if (_idx.byMch1[m]) setAdd(S.mch1Sel, m);
           });
@@ -646,6 +646,54 @@
     if (cb.checked) {
       var linked = getMCH1s().filter(function (m) { return S.mch1Linked[m] && m !== mch1; });
       if (linked.length > 0) S.mch1Bounds[mch1] = S.mch1Bounds[linked[0]].slice();
+    }
+    updateAll();
+  }
+
+  function syncLinkAllCheckbox() {
+    var cb = document.getElementById("linkAllCheck");
+    var label = document.getElementById("linkAllCb");
+    if (!cb || !label) return;
+    var mch1s = getMCH1s();
+    if (mch1s.length === 0) {
+      cb.checked = false;
+      label.classList.remove("active");
+      return;
+    }
+    var allLinked = mch1s.every(function (m) { return S.mch1Linked[m]; });
+    cb.checked = allLinked;
+    label.classList.toggle("active", allLinked);
+  }
+
+  function onLinkAllToggle(checked) {
+    var mch1s = getMCH1s();
+    if (checked) {
+      // Link all MCH1 categories
+      mch1s.forEach(function (m) {
+        S.mch1Linked[m] = true;
+      });
+      // Propagate bounds from first linked MCH1
+      if (mch1s.length > 0) {
+        var sourceBounds = getActiveBounds(mch1s[0]);
+        mch1s.forEach(function (m) {
+          S.mch1Bounds[m] = sourceBounds.slice();
+        });
+      }
+      // Select only กระจกห้องน้ำ in MCH1 filter
+      setClear(S.mch1Sel);
+      if (_idx.byMch1["กระจกห้องน้ำ"]) {
+        setAdd(S.mch1Sel, "กระจกห้องน้ำ");
+      }
+    } else {
+      // Unlink all MCH1 categories
+      mch1s.forEach(function (m) {
+        S.mch1Linked[m] = false;
+      });
+      // Select all MCH1 categories when unlinked
+      setClear(S.mch1Sel);
+      mch1s.forEach(function (m) {
+        setAdd(S.mch1Sel, m);
+      });
     }
     updateAll();
   }
@@ -978,6 +1026,7 @@
   // ─── Master Update ───────────────────────────────────────
   function updateAll() {
     try {
+      syncLinkAllCheckbox();
       renderDropdownMCH3();
       renderDropdown();
       renderSummary();
@@ -1103,7 +1152,16 @@
         return;
       }
 
-      // Link checkboxes
+      // Link All checkbox (global, in control bar)
+      var linkAllLabel = e.target.closest("#linkAllCb");
+      if (linkAllLabel) {
+        var allCb = document.getElementById("linkAllCheck");
+        if (e.target !== allCb) allCb.checked = !allCb.checked;
+        onLinkAllToggle(allCb.checked);
+        return;
+      }
+
+      // Link checkboxes (per-MCH1, in summary cards)
       var linkCb = e.target.closest(".link-cb");
       if (linkCb) {
         var cb = linkCb.querySelector("input[type=checkbox]");
