@@ -1030,6 +1030,14 @@
     document.getElementById("exportSummaryBtn").addEventListener("click", exportSummary);
     document.getElementById("resetBoundsBtn").addEventListener("click", resetBounds);
 
+    // Settings toggle
+    document.getElementById("settingsToggle").addEventListener("click", function () {
+      document.getElementById("settingsBar").style.display = "flex";
+    });
+    document.getElementById("settingsClose").addEventListener("click", function () {
+      document.getElementById("settingsBar").style.display = "none";
+    });
+
     // Dropdown toggles
     document.getElementById("dd3Toggle").addEventListener("click", toggleDD3);
     document.getElementById("ddToggle").addEventListener("click", toggleDD);
