@@ -158,7 +158,6 @@
     mch3Sel: {},
     mch1Sel: {},
     mch1Bounds: {},
-    mch1Linked: {},
     tableView: {},
     dFilter: "ALL",
     sortCol: null,
@@ -337,7 +336,6 @@
           });
 
           S.mch1Bounds = {};
-          S.mch1Linked = {};
           S.tableView  = {};
           S.dFilter    = "ALL";
           S.sortCol    = null;
@@ -433,7 +431,6 @@
     getMCH1s().forEach(function (m) {
       if (!S.mch1Bounds[m]) {
         S.mch1Bounds[m] = calcDefaultBounds(m);
-        S.mch1Linked[m] = true;
       }
     });
   }
@@ -441,13 +438,6 @@
   function getActiveBounds(mch1) {
     if (!S.mch1Bounds[mch1]) S.mch1Bounds[mch1] = calcDefaultBounds(mch1);
     return S.mch1Bounds[mch1];
-  }
-
-  function propagateBounds(sourceMch1, bounds) {
-    if (!S.mch1Linked[sourceMch1]) return;
-    getMCH1s().forEach(function (m) {
-      if (m !== sourceMch1 && S.mch1Linked[m]) S.mch1Bounds[m] = bounds.slice();
-    });
   }
 
   function assignTier(price, bounds) {
@@ -557,7 +547,6 @@
 
     S.mch1Bounds[_drag.mch1] = bounds;
     updateSliderDOM(_drag.mch1, bounds, max);
-    propagateBounds(_drag.mch1, bounds);
   }
 
   function doSliderDragTouch(e) {
@@ -579,7 +568,6 @@
 
     S.mch1Bounds[_drag.mch1] = bounds;
     updateSliderDOM(_drag.mch1, bounds, max);
-    propagateBounds(_drag.mch1, bounds);
   }
 
   function endSliderDrag() {
@@ -635,64 +623,6 @@
     else if (idx === 1) bounds[1] = Math.max(bounds[0], Math.min(val, bounds[2]));
     else bounds[2] = Math.max(bounds[1], Math.min(val, max));
     S.mch1Bounds[mch1] = bounds;
-    propagateBounds(mch1, bounds);
-    updateAll();
-  }
-
-  function onLinkToggle(mch1, cb) {
-    S.mch1Linked[mch1] = cb.checked;
-    if (cb.checked) {
-      var linked = getMCH1s().filter(function (m) { return S.mch1Linked[m] && m !== mch1; });
-      if (linked.length > 0) S.mch1Bounds[mch1] = S.mch1Bounds[linked[0]].slice();
-    }
-    updateAll();
-  }
-
-  function syncLinkAllCheckbox() {
-    var cb = document.getElementById("linkAllCheck");
-    var label = document.getElementById("linkAllCb");
-    if (!cb || !label) return;
-    var mch1s = getMCH1s();
-    if (mch1s.length === 0) {
-      cb.checked = false;
-      label.classList.remove("active");
-      return;
-    }
-    var allLinked = mch1s.every(function (m) { return S.mch1Linked[m]; });
-    cb.checked = allLinked;
-    label.classList.toggle("active", allLinked);
-  }
-
-  function onLinkAllToggle(checked) {
-    var mch1s = getMCH1s();
-    if (checked) {
-      // Link all MCH1 categories
-      mch1s.forEach(function (m) {
-        S.mch1Linked[m] = true;
-      });
-      // Propagate bounds from first linked MCH1
-      if (mch1s.length > 0) {
-        var sourceBounds = getActiveBounds(mch1s[0]);
-        mch1s.forEach(function (m) {
-          S.mch1Bounds[m] = sourceBounds.slice();
-        });
-      }
-      // Select only กระจกห้องน้ำ in MCH1 filter
-      setClear(S.mch1Sel);
-      if (_idx.byMch1["กระจกห้องน้ำ"]) {
-        setAdd(S.mch1Sel, "กระจกห้องน้ำ");
-      }
-    } else {
-      // Unlink all MCH1 categories
-      mch1s.forEach(function (m) {
-        S.mch1Linked[m] = false;
-      });
-      // Select all MCH1 categories when unlinked
-      setClear(S.mch1Sel);
-      mch1s.forEach(function (m) {
-        setAdd(S.mch1Sel, m);
-      });
-    }
     updateAll();
   }
 
@@ -874,8 +804,7 @@
       html += "<div class=\"card\" style=\"margin-bottom:24px;\">"
         + "<div class=\"mch1-title\"><div class=\"mch1-icon\"></div>"
         + "<span style=\"font-size:1.1rem;color:var(--text)\">หมวดหมู่: <b>" + m + "</b> (" + catData.length + " SKU)</span>"
-        + "<div class=\"link-cb " + (S.mch1Linked[m] ? "active" : "") + "\">"
-        + "<input type=\"checkbox\" class=\"link-cb-input\" data-mch1=\"" + m + "\"" + (S.mch1Linked[m] ? " checked" : "") + "> 🔗 เชื่อมโยงเกณฑ์ราคากลาง</div></div>"
+        + "</div>"
 
         + "<div class=\"tier-ctrl\" data-mch1=\"" + m + "\">"
         + "<div class=\"tier-ctrl-label\">🎛️ ช่วงราคา (ECO → MASS → PREMIUM → LUXURY) — ลากจุดกลมเพื่อปรับ</div>"
@@ -1024,7 +953,6 @@
   // ─── Master Update ───────────────────────────────────────
   function updateAll() {
     try {
-      syncLinkAllCheckbox();
       renderDropdownMCH3();
       renderDropdown();
       renderSummary();
@@ -1037,7 +965,6 @@
 
   function resetBounds() {
     S.mch1Bounds = {};
-    S.mch1Linked = {};
     S.tableView = {};
     S.dFilter = "ALL";
     S.sortCol = null;
@@ -1147,24 +1074,6 @@
           setToggle(S.mch1Sel, mch1);
         }
         updateAll();
-        return;
-      }
-
-      // Link All checkbox (global, in control bar)
-      var linkAllLabel = e.target.closest("#linkAllCb");
-      if (linkAllLabel) {
-        var allCb = document.getElementById("linkAllCheck");
-        if (e.target !== allCb) allCb.checked = !allCb.checked;
-        onLinkAllToggle(allCb.checked);
-        return;
-      }
-
-      // Link checkboxes (per-MCH1, in summary cards)
-      var linkCb = e.target.closest(".link-cb");
-      if (linkCb) {
-        var cb = linkCb.querySelector("input[type=checkbox]");
-        if (e.target !== cb) cb.checked = !cb.checked;
-        onLinkToggle(cb.dataset.mch1, cb);
         return;
       }
 
