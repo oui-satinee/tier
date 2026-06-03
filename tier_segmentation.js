@@ -1118,8 +1118,8 @@
     });
 
     document.addEventListener("click", function (e) {
-      // MCH3 dropdown options
-      var dd3Opt = e.target.closest("[data-mch3]");
+      // MCH3 dropdown options (only inside #dd3Menu)
+      var dd3Opt = e.target.closest("#dd3Menu [data-mch3]");
       if (dd3Opt) {
         e.stopPropagation();
         var mch3 = dd3Opt.dataset.mch3;
@@ -1134,8 +1134,8 @@
         return;
       }
 
-      // MCH1 dropdown options
-      var dd1Opt = e.target.closest("[data-mch1]");
+      // MCH1 dropdown options (only inside #ddMenu)
+      var dd1Opt = e.target.closest("#ddMenu [data-mch1]");
       if (dd1Opt) {
         e.stopPropagation();
         var mch1 = dd1Opt.dataset.mch1;
