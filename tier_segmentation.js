@@ -98,6 +98,8 @@
     return isNaN(n) ? 0 : n;
   }
 
+  function escAttr(s) { return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
   function extractRecords(dataTable) {
     var colIndex = buildColumnIndex(dataTable.columns);
     console.log("[TierSeg] Columns detected:", colIndex);
@@ -404,7 +406,18 @@
 
   function getMCH3s() { return _idx.mch3List; }
 
-  function getMCH2s() { return _idx.mch2List; }
+  function getMCH2s() {
+    // Filter MCH2 by active MCH3s
+    var activeMch3s = getActiveMCH3s();
+    if (activeMch3s.length === 0) return [];
+    if (activeMch3s.length === _idx.mch3List.length) return _idx.mch2List;
+    var seen = {};
+    activeMch3s.forEach(function (m3) {
+      var items = _idx.byMch3[m3] || [];
+      items.forEach(function (d) { seen[d.mch2] = true; });
+    });
+    return _idx.mch2List.filter(function (m) { return seen[m]; });
+  }
 
   function getActiveMCH2s() {
     return setFrom(S.mch2Sel);
@@ -415,7 +428,19 @@
   }
 
   function getMCH1s() {
-    return _idx.mch1List;
+    // Filter MCH1 by active MCH3s + active MCH2s
+    var activeMch3s = getActiveMCH3s();
+    var activeMch2s = getActiveMCH2s();
+    if (activeMch3s.length === 0 || activeMch2s.length === 0) return [];
+    if (activeMch3s.length === _idx.mch3List.length && activeMch2s.length === _idx.mch2List.length) return _idx.mch1List;
+    var seen = {};
+    activeMch2s.forEach(function (m2) {
+      var items = _idx.byMch2[m2] || [];
+      items.forEach(function (d) {
+        if (activeMch3s.indexOf(d.mch3) !== -1) seen[d.mch1] = true;
+      });
+    });
+    return _idx.mch1List.filter(function (m) { return seen[m]; });
   }
 
   function getActiveMCH1s() {
@@ -495,7 +520,7 @@
     mch3s.forEach(function (m) {
       var checked = setHas(S.mch3Sel, m);
       var count = (_idx.byMch3[m] || []).length;
-      html += '<div class="dd-opt" data-mch3="' + m + '"><input type="checkbox" ' + (checked ? "checked" : "") + "><span>" + m + "</span><span class=\"dd-count\">" + count + " SKU</span></div>";
+      html += '<div class="dd-opt" data-mch3="' + escAttr(m) + '"><input type="checkbox" ' + (checked ? "checked" : "") + "><span>" + m + "</span><span class=\"dd-count\">" + count + " SKU</span></div>";
     });
     document.getElementById("dd3Menu").innerHTML = html;
   }
@@ -508,16 +533,29 @@
 
   function renderDropdownMCH2() {
     var mch2s = getMCH2s();
+    var activeMch3s = getActiveMCH3s();
     var sel = setFrom(S.mch2Sel);
     var allChecked = mch2s.length > 0 && sel.length === mch2s.length;
 
+    // Count per MCH2 filtered by active MCH3s
+    var countsByMch2 = {};
+    var totalActive = 0;
+    activeMch3s.forEach(function (m3) {
+      var items = _idx.byMch3[m3] || [];
+      items.forEach(function (d) {
+        if (!countsByMch2[d.mch2]) countsByMch2[d.mch2] = 0;
+        countsByMch2[d.mch2]++;
+        totalActive++;
+      });
+    });
+
     document.getElementById("dd2Text").textContent = sel.length === 0 ? "-" : (sel.length === mch2s.length ? "เลือกทั้งหมด" : sel.join(", "));
 
-    var html = '<div class="dd-opt all-opt" data-mch2="__all__"><input type="checkbox" ' + (allChecked ? "checked" : "") + '><span>เลือกทั้งหมด</span></div>';
+    var html = '<div class="dd-opt all-opt" data-mch2="__all__"><input type="checkbox" ' + (allChecked ? "checked" : "") + '><span>เลือกทั้งหมด</span><span class="dd-count">' + totalActive + " SKU</span></div>";
     mch2s.forEach(function (m) {
       var checked = setHas(S.mch2Sel, m);
-      var count = (_idx.byMch2[m] || []).length;
-      html += '<div class="dd-opt" data-mch2="' + m + '"><input type="checkbox" ' + (checked ? "checked" : "") + "><span>" + m + "</span><span class=\"dd-count\">" + count + " SKU</span></div>";
+      var count = countsByMch2[m] || 0;
+      html += '<div class="dd-opt" data-mch2="' + escAttr(m) + '"><input type="checkbox" ' + (checked ? "checked" : "") + "><span>" + m + "</span><span class=\"dd-count\">" + count + " SKU</span></div>";
     });
     document.getElementById("dd2Menu").innerHTML = html;
   }
@@ -525,15 +563,18 @@
   function renderDropdown() {
     var mch1s = getMCH1s();
     var activeMch3s = getActiveMCH3s();
-    // Count per MCH1 filtered by active MCH3s using index
+    var activeMch2s = getActiveMCH2s();
+    // Count per MCH1 filtered by active MCH3s + MCH2s
     var totalActive = 0;
     var countsByMch1 = {};
-    activeMch3s.forEach(function (m3) {
-      var items = _idx.byMch3[m3] || [];
+    activeMch2s.forEach(function (m2) {
+      var items = _idx.byMch2[m2] || [];
       items.forEach(function (d) {
-        if (!countsByMch1[d.mch1]) countsByMch1[d.mch1] = 0;
-        countsByMch1[d.mch1]++;
-        totalActive++;
+        if (activeMch3s.indexOf(d.mch3) !== -1) {
+          if (!countsByMch1[d.mch1]) countsByMch1[d.mch1] = 0;
+          countsByMch1[d.mch1]++;
+          totalActive++;
+        }
       });
     });
     var sel = setFrom(S.mch1Sel);
@@ -545,7 +586,7 @@
     mch1s.forEach(function (m) {
       var checked = setHas(S.mch1Sel, m);
       var count = countsByMch1[m] || 0;
-      html += '<div class="dd-opt" data-mch1="' + m + '"><input type="checkbox" ' + (checked ? "checked" : "") + "><span>" + m + "</span><span class=\"dd-count\">" + count + " SKU</span></div>";
+      html += '<div class="dd-opt" data-mch1="' + escAttr(m) + '"><input type="checkbox" ' + (checked ? "checked" : "") + "><span>" + m + "</span><span class=\"dd-count\">" + count + " SKU</span></div>";
     });
     document.getElementById("ddMenu").innerHTML = html;
   }
@@ -840,7 +881,7 @@
         + "<span style=\"font-size:1.1rem;color:var(--text)\">หมวดหมู่: <b>" + m + "</b> (" + catData.length + " SKU)</span>"
         + "</div>"
 
-        + "<div class=\"tier-ctrl\" data-mch1=\"" + m + "\">"
+        + "<div class=\"tier-ctrl\" data-mch1=\"" + escAttr(m) + "\">"
         + "<div class=\"tier-ctrl-label\">🎛️ ช่วงราคา (ECO → MASS → PREMIUM → LUXURY) — ลากจุดกลมเพื่อปรับ</div>"
         + "<div class=\"slider-labels\" style=\"position:relative;height:18px;margin-bottom:4px;\">"
         + "<span style=\"left:0%;position:absolute;\">฿0</span>"
@@ -849,20 +890,20 @@
         + "<span class=\"lbl-prem\" style=\"left:" + (b2/max*100) + "%;position:absolute;transform:translateX(-50%);color:var(--premium);font-weight:600;\">PREM: ฿" + b2.toLocaleString() + "</span>"
         + "<span style=\"right:0%;position:absolute;\">Max: ฿" + max.toLocaleString() + "</span></div>"
 
-        + "<div class=\"slider-bar\" data-mch1=\"" + m + "\" data-max=\"" + max + "\" style=\"position:relative;height:40px;background:#e2e8f0;border-radius:6px;overflow:visible;\">"
+        + "<div class=\"slider-bar\" data-mch1=\"" + escAttr(m) + "\" data-max=\"" + max + "\" style=\"position:relative;height:40px;background:#e2e8f0;border-radius:6px;overflow:visible;\">"
         + "<div class=\"slider-track\" style=\"position:absolute;top:14px;left:0;right:0;height:12px;display:flex;border-radius:6px;overflow:hidden;\">"
         + "<div class=\"seg\" style=\"width:" + (b0/max*100) + "%;background:var(--eco-bg);height:100%;\"></div>"
         + "<div class=\"seg\" style=\"width:" + ((b1-b0)/max*100) + "%;background:var(--mass-bg);height:100%;\"></div>"
         + "<div class=\"seg\" style=\"width:" + ((b2-b1)/max*100) + "%;background:var(--premium-bg);height:100%;\"></div>"
         + "<div class=\"seg\" style=\"width:" + ((max-b2)/max*100) + "%;background:var(--luxury-bg);height:100%;\"></div></div>"
-        + "<div class=\"slider-handle h-eco\" data-idx=\"0\" style=\"left:" + (b0/max*100) + "%\" data-mch1=\"" + m + "\" data-drag-idx=\"0\"></div>"
-        + "<div class=\"slider-handle h-mass\" data-idx=\"1\" style=\"left:" + (b1/max*100) + "%\" data-mch1=\"" + m + "\" data-drag-idx=\"1\"></div>"
-        + "<div class=\"slider-handle h-prem\" data-idx=\"2\" style=\"left:" + (b2/max*100) + "%\" data-mch1=\"" + m + "\" data-drag-idx=\"2\"></div></div>"
+        + "<div class=\"slider-handle h-eco\" data-idx=\"0\" style=\"left:" + (b0/max*100) + "%\" data-mch1=\"" + escAttr(m) + "\" data-drag-idx=\"0\"></div>"
+        + "<div class=\"slider-handle h-mass\" data-idx=\"1\" style=\"left:" + (b1/max*100) + "%\" data-mch1=\"" + escAttr(m) + "\" data-drag-idx=\"1\"></div>"
+        + "<div class=\"slider-handle h-prem\" data-idx=\"2\" style=\"left:" + (b2/max*100) + "%\" data-mch1=\"" + escAttr(m) + "\" data-drag-idx=\"2\"></div></div>"
 
         + "<div class=\"abs-inputs\">"
-        + "<div class=\"ai\"><div class=\"ai-dot\" style=\"background:var(--eco)\"></div><span class=\"ai-label\">Max ECO</span><input type=\"number\" min=\"0\" max=\"" + b1 + "\" value=\"" + b0 + "\" data-abs-mch1=\"" + m + "\" data-abs-idx=\"0\"></div>"
-        + "<div class=\"ai\"><div class=\"ai-dot\" style=\"background:var(--mass)\"></div><span class=\"ai-label\">Max MASS</span><input type=\"number\" min=\"" + b0 + "\" max=\"" + b2 + "\" value=\"" + b1 + "\" data-abs-mch1=\"" + m + "\" data-abs-idx=\"1\"></div>"
-        + "<div class=\"ai\"><div class=\"ai-dot\" style=\"background:var(--premium)\"></div><span class=\"ai-label\">Max PREMIUM</span><input type=\"number\" min=\"" + b1 + "\" max=\"" + max + "\" value=\"" + b2 + "\" data-abs-mch1=\"" + m + "\" data-abs-idx=\"2\"></div>"
+        + "<div class=\"ai\"><div class=\"ai-dot\" style=\"background:var(--eco)\"></div><span class=\"ai-label\">Max ECO</span><input type=\"number\" min=\"0\" max=\"" + b1 + "\" value=\"" + b0 + "\" data-abs-mch1=\"" + escAttr(m) + "\" data-abs-idx=\"0\"></div>"
+        + "<div class=\"ai\"><div class=\"ai-dot\" style=\"background:var(--mass)\"></div><span class=\"ai-label\">Max MASS</span><input type=\"number\" min=\"" + b0 + "\" max=\"" + b2 + "\" value=\"" + b1 + "\" data-abs-mch1=\"" + escAttr(m) + "\" data-abs-idx=\"1\"></div>"
+        + "<div class=\"ai\"><div class=\"ai-dot\" style=\"background:var(--premium)\"></div><span class=\"ai-label\">Max PREMIUM</span><input type=\"number\" min=\"" + b1 + "\" max=\"" + max + "\" value=\"" + b2 + "\" data-abs-mch1=\"" + escAttr(m) + "\" data-abs-idx=\"2\"></div>"
         + "<div class=\"ai\"><div class=\"ai-dot\" style=\"background:var(--luxury)\"></div><span class=\"ai-label\">Max LUXURY</span><input type=\"number\" value=\"" + max + "\" disabled></div></div></div>"
 
         + "<div class=\"tab-bar\" style=\"margin-top:14px;display:inline-flex;\">"
