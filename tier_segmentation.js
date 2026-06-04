@@ -428,17 +428,14 @@
   }
 
   function getMCH1s() {
-    // Filter MCH1 by active MCH3s + active MCH2s
+    // Filter MCH1 by active MCH3s only (some MCH1 may have no MCH2 value)
     var activeMch3s = getActiveMCH3s();
-    var activeMch2s = getActiveMCH2s();
-    if (activeMch3s.length === 0 || activeMch2s.length === 0) return [];
-    if (activeMch3s.length === _idx.mch3List.length && activeMch2s.length === _idx.mch2List.length) return _idx.mch1List;
+    if (activeMch3s.length === 0) return [];
+    if (activeMch3s.length === _idx.mch3List.length) return _idx.mch1List;
     var seen = {};
-    activeMch2s.forEach(function (m2) {
-      var items = _idx.byMch2[m2] || [];
-      items.forEach(function (d) {
-        if (activeMch3s.indexOf(d.mch3) !== -1) seen[d.mch1] = true;
-      });
+    activeMch3s.forEach(function (m3) {
+      var items = _idx.byMch3[m3] || [];
+      items.forEach(function (d) { seen[d.mch1] = true; });
     });
     return _idx.mch1List.filter(function (m) { return seen[m]; });
   }
