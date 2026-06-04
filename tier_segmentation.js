@@ -773,10 +773,37 @@
 
     if (charts.donut) charts.donut.destroy();
     var totalSales = TIERS.reduce(function (s, t) { return s + sales[t]; }, 0);
+    var pctLabels = TIERS.map(function (t) { return totalSales ? (sales[t] / totalSales * 100).toFixed(1) : 0; });
     charts.donut = new Chart(document.getElementById("chartDonut").getContext("2d"), {
       type: "doughnut",
-      data: { labels: TIERS.map(function (t) { return t + " " + (totalSales ? (sales[t] / totalSales * 100).toFixed(1) : 0) + "%"; }), datasets: [{ data: TIERS.map(function (t) { return sales[t]; }), backgroundColor: bgColors }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 } } } } }
+      data: { labels: TIERS, datasets: [{ data: TIERS.map(function (t) { return sales[t]; }), backgroundColor: bgColors }] },
+      plugins: [{
+        id: "pctLabels",
+        afterDraw: function (chart) {
+          var ctx2 = chart.ctx;
+          var meta = chart.getDatasetMeta(0);
+          TIERS.forEach(function (t, i) {
+            var arc = meta.data[i];
+            if (!arc) return;
+            var pct = pctLabels[i];
+            if (pct < 2) return;
+            var midAngle = (arc.startAngle + arc.endAngle) / 2;
+            var radius = (arc.innerRadius + arc.outerRadius) / 2;
+            var x = arc.x + Math.cos(midAngle) * radius;
+            var y = arc.y + Math.sin(midAngle) * radius;
+            ctx2.save();
+            ctx2.fillStyle = "#fff";
+            ctx2.font = "bold 12px Segoe UI, sans-serif";
+            ctx2.textAlign = "center";
+            ctx2.textBaseline = "middle";
+            ctx2.shadowColor = "rgba(0,0,0,0.4)";
+            ctx2.shadowBlur = 3;
+            ctx2.fillText(pct + "%", x, y);
+            ctx2.restore();
+          });
+        }
+      }],
+      options: { responsive: true, maintainAspectRatio: false, cutout: "40%", plugins: { legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 } } } } }
     });
 
     if (charts.profit) charts.profit.destroy();
