@@ -159,17 +159,11 @@
   // ─── State ────────────────────────────────────────────────
   var S = {
     data: [],
-    mch3Sel: {},
-    mch2Sel: {},
-    mch1Sel: {},
     mch1Bounds: {},
     tableView: {},
     dFilter: "ALL",
     sortCol: null,
     sortDir: "asc",
-    ddOpen: false,
-    dd2Open: false,
-    dd3Open: false,
     worksheetName: ""
   };
 
@@ -215,17 +209,8 @@
   function getDataForMch1(mch1) { return _idx.byMch1[mch1] || []; }
 
   function getActiveData() {
-    var activeMch3s = getActiveMCH3s();
-    var activeMch2s = getActiveMCH2s();
-    var activeMch1s = getActiveMCH1s();
-    var result = [];
-    activeMch1s.forEach(function (m) {
-      var items = _idx.byMch1[m] || [];
-      items.forEach(function (d) {
-        if (activeMch3s.indexOf(d.mch3) !== -1 && activeMch2s.indexOf(d.mch2) !== -1) result.push(d);
-      });
-    });
-    return result;
+    // No cascade filter — return all data (filtering handled by data source)
+    return S.data;
   }
 
   // ─── UI Helpers ───────────────────────────────────────────
@@ -248,7 +233,6 @@
   }
 
   function showDashboard(show) {
-    document.getElementById("ctrlBar").style.display        = show ? "" : "none";
     document.getElementById("chartsRow").style.display      = show ? "" : "none";
     document.getElementById("detailCard").style.display     = show ? "" : "none";
   }
@@ -334,21 +318,9 @@
             return;
           }
 
-          // Reset state
+          // Reset state — all data used directly (filtering handled by data source)
           S.data = records;
           rebuildIndex();
-          setClear(S.mch3Sel);
-          getMCH3s().forEach(function (m) { setAdd(S.mch3Sel, m); });
-
-          setClear(S.mch2Sel);
-          getMCH2s().forEach(function (m) { setAdd(S.mch2Sel, m); });
-
-          // Default MCH1 selection: กระจกห้องน้ำ (linked mode = single category)
-          setClear(S.mch1Sel);
-          var defaultMch1 = ["กระจกห้องน้ำ"];
-          defaultMch1.forEach(function (m) {
-            if (_idx.byMch1[m]) setAdd(S.mch1Sel, m);
-          });
 
           S.mch1Bounds = {};
           S.tableView  = {};
@@ -402,49 +374,8 @@
   // BUSINESS LOGIC (reused from original)
   // ═══════════════════════════════════════════════════════════
 
-  function getFilteredData() { return S.data; }
-
-  function getMCH3s() { return _idx.mch3List; }
-
-  function getMCH2s() {
-    // Filter MCH2 by active MCH3s
-    var activeMch3s = getActiveMCH3s();
-    if (activeMch3s.length === 0) return [];
-    if (activeMch3s.length === _idx.mch3List.length) return _idx.mch2List;
-    var seen = {};
-    activeMch3s.forEach(function (m3) {
-      var items = _idx.byMch3[m3] || [];
-      items.forEach(function (d) { seen[d.mch2] = true; });
-    });
-    return _idx.mch2List.filter(function (m) { return seen[m]; });
-  }
-
-  function getActiveMCH2s() {
-    return setFrom(S.mch2Sel);
-  }
-
-  function getActiveMCH3s() {
-    return setFrom(S.mch3Sel);
-  }
-
-  function getMCH1s() {
-    // Filter MCH1 by active MCH3s only (some MCH1 may have no MCH2 value)
-    var activeMch3s = getActiveMCH3s();
-    if (activeMch3s.length === 0) return [];
-    if (activeMch3s.length === _idx.mch3List.length) return _idx.mch1List;
-    var seen = {};
-    activeMch3s.forEach(function (m3) {
-      var items = _idx.byMch3[m3] || [];
-      items.forEach(function (d) { seen[d.mch1] = true; });
-    });
-    return _idx.mch1List.filter(function (m) { return seen[m]; });
-  }
-
-  function getActiveMCH1s() {
-    var available = getMCH1s();
-    var sel = setFrom(S.mch1Sel);
-    return sel.filter(function (m) { return available.indexOf(m) !== -1; });
-  }
+  // No dropdown filters — all data used directly
+  function getMCH1s() { return _idx.mch1List; }
 
   // ─── Bounds & Tier ────────────────────────────────────────
   function getPercentile(arr, p) {
@@ -492,101 +423,7 @@
     }
   }
 
-  // ─── Dropdowns ────────────────────────────────────────────
-  function toggleDD3() {
-    S.dd3Open = !S.dd3Open;
-    document.getElementById("dd3Menu").classList.toggle("show", S.dd3Open);
-    document.getElementById("dd3Toggle").classList.toggle("open", S.dd3Open);
-  }
-
-  function toggleDD() {
-    S.ddOpen = !S.ddOpen;
-    document.getElementById("ddMenu").classList.toggle("show", S.ddOpen);
-    document.getElementById("ddToggle").classList.toggle("open", S.ddOpen);
-  }
-
-  function renderDropdownMCH3() {
-    var mch3s = getMCH3s();
-    var fd = getFilteredData();
-    var sel = setFrom(S.mch3Sel);
-    var allChecked = mch3s.length > 0 && sel.length === mch3s.length;
-
-    document.getElementById("dd3Text").textContent = sel.length === 0 ? "-" : (sel.length === mch3s.length ? "เลือกทั้งหมด" : sel.join(", "));
-
-    var html = '<div class="dd-opt all-opt" data-mch3="__all__"><input type="checkbox" ' + (allChecked ? "checked" : "") + '><span>เลือกทั้งหมด</span><span class="dd-count">' + fd.length + " SKU</span></div>";
-    mch3s.forEach(function (m) {
-      var checked = setHas(S.mch3Sel, m);
-      var count = (_idx.byMch3[m] || []).length;
-      html += '<div class="dd-opt" data-mch3="' + escAttr(m) + '"><input type="checkbox" ' + (checked ? "checked" : "") + "><span>" + m + "</span><span class=\"dd-count\">" + count + " SKU</span></div>";
-    });
-    document.getElementById("dd3Menu").innerHTML = html;
-  }
-
-  function toggleDD2() {
-    S.dd2Open = !S.dd2Open;
-    document.getElementById("dd2Menu").classList.toggle("show", S.dd2Open);
-    document.getElementById("dd2Toggle").classList.toggle("open", S.dd2Open);
-  }
-
-  function renderDropdownMCH2() {
-    var mch2s = getMCH2s();
-    var activeMch3s = getActiveMCH3s();
-    var sel = setFrom(S.mch2Sel);
-    var allChecked = mch2s.length > 0 && sel.length === mch2s.length;
-
-    // Count per MCH2 filtered by active MCH3s
-    var countsByMch2 = {};
-    var totalActive = 0;
-    activeMch3s.forEach(function (m3) {
-      var items = _idx.byMch3[m3] || [];
-      items.forEach(function (d) {
-        if (!countsByMch2[d.mch2]) countsByMch2[d.mch2] = 0;
-        countsByMch2[d.mch2]++;
-        totalActive++;
-      });
-    });
-
-    document.getElementById("dd2Text").textContent = sel.length === 0 ? "-" : (sel.length === mch2s.length ? "เลือกทั้งหมด" : sel.join(", "));
-
-    var html = '<div class="dd-opt all-opt" data-mch2="__all__"><input type="checkbox" ' + (allChecked ? "checked" : "") + '><span>เลือกทั้งหมด</span><span class="dd-count">' + totalActive + " SKU</span></div>";
-    mch2s.forEach(function (m) {
-      var checked = setHas(S.mch2Sel, m);
-      var count = countsByMch2[m] || 0;
-      html += '<div class="dd-opt" data-mch2="' + escAttr(m) + '"><input type="checkbox" ' + (checked ? "checked" : "") + "><span>" + m + "</span><span class=\"dd-count\">" + count + " SKU</span></div>";
-    });
-    document.getElementById("dd2Menu").innerHTML = html;
-  }
-
-  function renderDropdown() {
-    var mch1s = getMCH1s();
-    var activeMch3s = getActiveMCH3s();
-    var activeMch2s = getActiveMCH2s();
-    // Count per MCH1 filtered by active MCH3s + MCH2s
-    var totalActive = 0;
-    var countsByMch1 = {};
-    activeMch2s.forEach(function (m2) {
-      var items = _idx.byMch2[m2] || [];
-      items.forEach(function (d) {
-        if (activeMch3s.indexOf(d.mch3) !== -1) {
-          if (!countsByMch1[d.mch1]) countsByMch1[d.mch1] = 0;
-          countsByMch1[d.mch1]++;
-          totalActive++;
-        }
-      });
-    });
-    var sel = setFrom(S.mch1Sel);
-    var allChecked = mch1s.length > 0 && sel.length === mch1s.length;
-
-    document.getElementById("ddText").textContent = sel.length === 0 ? "-" : (sel.length === mch1s.length ? "เลือกทั้งหมด" : sel.join(", "));
-
-    var html = '<div class="dd-opt all-opt" data-mch1="__all__"><input type="checkbox" ' + (allChecked ? "checked" : "") + '><span>เลือกทั้งหมด</span><span class="dd-count">' + totalActive + " SKU</span></div>";
-    mch1s.forEach(function (m) {
-      var checked = setHas(S.mch1Sel, m);
-      var count = countsByMch1[m] || 0;
-      html += '<div class="dd-opt" data-mch1="' + escAttr(m) + '"><input type="checkbox" ' + (checked ? "checked" : "") + "><span>" + m + "</span><span class=\"dd-count\">" + count + " SKU</span></div>";
-    });
-    document.getElementById("ddMenu").innerHTML = html;
-  }
+  // ─── Dropdowns (removed — filtering handled by data source) ──
 
   // ─── Slider ───────────────────────────────────────────────
   var _drag = null;
@@ -845,7 +682,7 @@
 
   // ─── Render Summary ───────────────────────────────────────
   function renderSummary() {
-    var activeMch1s = getActiveMCH1s();
+    var activeMch1s = getMCH1s();
     var container = document.getElementById("summaryContainer");
 
     if (activeMch1s.length === 0) {
@@ -952,8 +789,6 @@
   // ─── Render Detail ────────────────────────────────────────
   function renderDetail() {
     var search = document.getElementById("searchBox").value.toLowerCase();
-    var activeMch1s = getActiveMCH1s();
-    var activeMch3s = getActiveMCH3s();
 
     var filtered = getActiveData().filter(function (d) {
       if (search && d.sku.toLowerCase().indexOf(search) === -1 && d.product.toLowerCase().indexOf(search) === -1 && d.mch3.toLowerCase().indexOf(search) === -1 && d.mch1.toLowerCase().indexOf(search) === -1 && d.brand.toLowerCase().indexOf(search) === -1) return false;
@@ -1000,7 +835,7 @@
   }
 
   function exportSummary() {
-    var activeMch1s = getActiveMCH1s();
+    var activeMch1s = getMCH1s();
     if (!activeMch1s.length) return;
     var csv = "﻿";
     activeMch1s.forEach(function (m) {
@@ -1025,9 +860,6 @@
   // ─── Master Update ───────────────────────────────────────
   function updateAll() {
     try {
-      renderDropdownMCH3();
-      renderDropdownMCH2();
-      renderDropdown();
       renderSummary();
       renderCharts();
       renderDetail();
@@ -1085,35 +917,8 @@
       document.getElementById("settingsBar").style.display = "none";
     });
 
-    // Dropdown toggles
-    document.getElementById("dd3Toggle").addEventListener("click", toggleDD3);
-    document.getElementById("dd2Toggle").addEventListener("click", toggleDD2);
-    document.getElementById("ddToggle").addEventListener("click", toggleDD);
-
-    // Click outside to close dropdowns
-    document.addEventListener("click", function (e) {
-      var wrap3 = document.getElementById("dd3Wrap");
-      if (wrap3 && !wrap3.contains(e.target)) {
-        S.dd3Open = false;
-        document.getElementById("dd3Menu").classList.remove("show");
-        document.getElementById("dd3Toggle").classList.remove("open");
-      }
-      var wrap2 = document.getElementById("dd2Wrap");
-      if (wrap2 && !wrap2.contains(e.target)) {
-        S.dd2Open = false;
-        document.getElementById("dd2Menu").classList.remove("show");
-        document.getElementById("dd2Toggle").classList.remove("open");
-      }
-      var wrap = document.getElementById("ddWrap");
-      if (wrap && !wrap.contains(e.target)) {
-        S.ddOpen = false;
-        document.getElementById("ddMenu").classList.remove("show");
-        document.getElementById("ddToggle").classList.remove("open");
-      }
-    });
-
-    // Delegated events for dynamic content — use document level
-    // so both ctrlBar (dropdowns) and summaryContainer (tables/sliders) are caught
+    // Delegated events for dynamic content
+    // Delegated events for summaryContainer (tables/sliders)
 
     // Slider handles need mousedown (not click) for drag
     document.addEventListener("mousedown", function (e) {
@@ -1125,54 +930,6 @@
     });
 
     document.addEventListener("click", function (e) {
-      // MCH3 dropdown options (only inside #dd3Menu)
-      var dd3Opt = e.target.closest("#dd3Menu [data-mch3]");
-      if (dd3Opt) {
-        e.stopPropagation();
-        var mch3 = dd3Opt.dataset.mch3;
-        if (mch3 === "__all__") {
-          var all = getMCH3s();
-          if (setFrom(S.mch3Sel).length === all.length) setClear(S.mch3Sel);
-          else { setClear(S.mch3Sel); all.forEach(function (m) { setAdd(S.mch3Sel, m); }); }
-        } else {
-          setToggle(S.mch3Sel, mch3);
-        }
-        updateAll();
-        return;
-      }
-
-      // MCH2 dropdown options (only inside #dd2Menu)
-      var dd2Opt = e.target.closest("#dd2Menu [data-mch2]");
-      if (dd2Opt) {
-        e.stopPropagation();
-        var mch2 = dd2Opt.dataset.mch2;
-        if (mch2 === "__all__") {
-          var all2 = getMCH2s();
-          if (setFrom(S.mch2Sel).length === all2.length) setClear(S.mch2Sel);
-          else { setClear(S.mch2Sel); all2.forEach(function (m) { setAdd(S.mch2Sel, m); }); }
-        } else {
-          setToggle(S.mch2Sel, mch2);
-        }
-        updateAll();
-        return;
-      }
-
-      // MCH1 dropdown options (only inside #ddMenu)
-      var dd1Opt = e.target.closest("#ddMenu [data-mch1]");
-      if (dd1Opt) {
-        e.stopPropagation();
-        var mch1 = dd1Opt.dataset.mch1;
-        if (mch1 === "__all__") {
-          var all1 = getMCH1s();
-          if (setFrom(S.mch1Sel).length === all1.length) setClear(S.mch1Sel);
-          else { setClear(S.mch1Sel); all1.forEach(function (m) { setAdd(S.mch1Sel, m); }); }
-        } else {
-          setToggle(S.mch1Sel, mch1);
-        }
-        updateAll();
-        return;
-      }
-
       // Tab buttons
       var tabBtn = e.target.closest("[data-tab-mch1]");
       if (tabBtn && tabBtn.classList.contains("tab-btn")) {
