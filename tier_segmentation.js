@@ -772,9 +772,10 @@
     });
 
     if (charts.donut) charts.donut.destroy();
+    var totalSales = TIERS.reduce(function (s, t) { return s + sales[t]; }, 0);
     charts.donut = new Chart(document.getElementById("chartDonut").getContext("2d"), {
       type: "doughnut",
-      data: { labels: TIERS, datasets: [{ data: TIERS.map(function (t) { return sales[t]; }), backgroundColor: bgColors }] },
+      data: { labels: TIERS.map(function (t) { return t + " " + (totalSales ? (sales[t] / totalSales * 100).toFixed(1) : 0) + "%"; }), datasets: [{ data: TIERS.map(function (t) { return sales[t]; }), backgroundColor: bgColors }] },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 } } } } }
     });
 
