@@ -22,6 +22,7 @@
     sku:      ["sku", "skuid", "sku_id", "item_code", "itemcode", "product_code", "productcode"],
     product:  ["product", "product_name", "productname", "item_name", "itemname", "description"],
     mch3:     ["mch3", "category", "cat", "mch_3", "mch3_name", "category_name", "cat_name"],
+    mch2:     ["mch2", "category_group", "cat_group", "mch_2", "mch2_name"],
     mch1:     ["mch1", "product_group", "prod_group", "mch_1", "mch1_name", "group", "subcategory"],
     brand:    ["brand", "brand_name", "brandname"],
     flag:     ["flag", "brand_type", "brandtype", "brand_flag", "type", "private_brand_flag"],
@@ -139,6 +140,7 @@
         sku:     String(get("sku") || "ROW-" + (r + 1)),
         product: String(get("product") || ""),
         mch3:    String(get("mch3") || ""),
+        mch2:    String(get("mch2") || ""),
         mch1:    String(get("mch1") || ""),
         brand:   String(get("brand") || ""),
         flag:    String(get("flag") || "Market Brand"),
@@ -156,6 +158,7 @@
   var S = {
     data: [],
     mch3Sel: {},
+    mch2Sel: {},
     mch1Sel: {},
     mch1Bounds: {},
     tableView: {},
@@ -163,6 +166,7 @@
     sortCol: null,
     sortDir: "asc",
     ddOpen: false,
+    dd2Open: false,
     dd3Open: false,
     worksheetName: ""
   };
@@ -183,21 +187,26 @@
   function setToggle(obj, key) { if (obj[key]) delete obj[key]; else obj[key] = true; }
 
   // ─── Data Index (performance) ─────────────────────────────
-  var _idx = { byMch1: {}, byMch3: {}, mch1List: [], mch3List: [] };
+  var _idx = { byMch1: {}, byMch2: {}, byMch3: {}, mch1List: [], mch2List: [], mch3List: [] };
 
   function rebuildIndex() {
     _idx.byMch1 = {};
+    _idx.byMch2 = {};
     _idx.byMch3 = {};
-    var m1 = {}, m3 = {};
+    var m1 = {}, m2 = {}, m3 = {};
     S.data.forEach(function (d) {
       if (!_idx.byMch1[d.mch1]) _idx.byMch1[d.mch1] = [];
       _idx.byMch1[d.mch1].push(d);
+      if (!_idx.byMch2[d.mch2]) _idx.byMch2[d.mch2] = [];
+      _idx.byMch2[d.mch2].push(d);
       if (!_idx.byMch3[d.mch3]) _idx.byMch3[d.mch3] = [];
       _idx.byMch3[d.mch3].push(d);
       m1[d.mch1] = true;
+      m2[d.mch2] = true;
       m3[d.mch3] = true;
     });
     _idx.mch1List = Object.keys(m1).sort();
+    _idx.mch2List = Object.keys(m2).sort();
     _idx.mch3List = Object.keys(m3).sort();
   }
 
@@ -205,12 +214,13 @@
 
   function getActiveData() {
     var activeMch3s = getActiveMCH3s();
+    var activeMch2s = getActiveMCH2s();
     var activeMch1s = getActiveMCH1s();
     var result = [];
     activeMch1s.forEach(function (m) {
       var items = _idx.byMch1[m] || [];
       items.forEach(function (d) {
-        if (activeMch3s.indexOf(d.mch3) !== -1) result.push(d);
+        if (activeMch3s.indexOf(d.mch3) !== -1 && activeMch2s.indexOf(d.mch2) !== -1) result.push(d);
       });
     });
     return result;
@@ -328,6 +338,9 @@
           setClear(S.mch3Sel);
           getMCH3s().forEach(function (m) { setAdd(S.mch3Sel, m); });
 
+          setClear(S.mch2Sel);
+          getMCH2s().forEach(function (m) { setAdd(S.mch2Sel, m); });
+
           // Default MCH1 selection: กระจกห้องน้ำ (linked mode = single category)
           setClear(S.mch1Sel);
           var defaultMch1 = ["กระจกห้องน้ำ"];
@@ -390,6 +403,12 @@
   function getFilteredData() { return S.data; }
 
   function getMCH3s() { return _idx.mch3List; }
+
+  function getMCH2s() { return _idx.mch2List; }
+
+  function getActiveMCH2s() {
+    return setFrom(S.mch2Sel);
+  }
 
   function getActiveMCH3s() {
     return setFrom(S.mch3Sel);
@@ -479,6 +498,28 @@
       html += '<div class="dd-opt" data-mch3="' + m + '"><input type="checkbox" ' + (checked ? "checked" : "") + "><span>" + m + "</span><span class=\"dd-count\">" + count + " SKU</span></div>";
     });
     document.getElementById("dd3Menu").innerHTML = html;
+  }
+
+  function toggleDD2() {
+    S.dd2Open = !S.dd2Open;
+    document.getElementById("dd2Menu").classList.toggle("show", S.dd2Open);
+    document.getElementById("dd2Toggle").classList.toggle("open", S.dd2Open);
+  }
+
+  function renderDropdownMCH2() {
+    var mch2s = getMCH2s();
+    var sel = setFrom(S.mch2Sel);
+    var allChecked = mch2s.length > 0 && sel.length === mch2s.length;
+
+    document.getElementById("dd2Text").textContent = sel.length === 0 ? "-" : (sel.length === mch2s.length ? "เลือกทั้งหมด" : sel.join(", "));
+
+    var html = '<div class="dd-opt all-opt" data-mch2="__all__"><input type="checkbox" ' + (allChecked ? "checked" : "") + '><span>เลือกทั้งหมด</span></div>';
+    mch2s.forEach(function (m) {
+      var checked = setHas(S.mch2Sel, m);
+      var count = (_idx.byMch2[m] || []).length;
+      html += '<div class="dd-opt" data-mch2="' + m + '"><input type="checkbox" ' + (checked ? "checked" : "") + "><span>" + m + "</span><span class=\"dd-count\">" + count + " SKU</span></div>";
+    });
+    document.getElementById("dd2Menu").innerHTML = html;
   }
 
   function renderDropdown() {
@@ -947,6 +988,7 @@
   function updateAll() {
     try {
       renderDropdownMCH3();
+      renderDropdownMCH2();
       renderDropdown();
       renderSummary();
       renderCharts();
@@ -1007,6 +1049,7 @@
 
     // Dropdown toggles
     document.getElementById("dd3Toggle").addEventListener("click", toggleDD3);
+    document.getElementById("dd2Toggle").addEventListener("click", toggleDD2);
     document.getElementById("ddToggle").addEventListener("click", toggleDD);
 
     // Click outside to close dropdowns
@@ -1016,6 +1059,12 @@
         S.dd3Open = false;
         document.getElementById("dd3Menu").classList.remove("show");
         document.getElementById("dd3Toggle").classList.remove("open");
+      }
+      var wrap2 = document.getElementById("dd2Wrap");
+      if (wrap2 && !wrap2.contains(e.target)) {
+        S.dd2Open = false;
+        document.getElementById("dd2Menu").classList.remove("show");
+        document.getElementById("dd2Toggle").classList.remove("open");
       }
       var wrap = document.getElementById("ddWrap");
       if (wrap && !wrap.contains(e.target)) {
@@ -1049,6 +1098,22 @@
           else { setClear(S.mch3Sel); all.forEach(function (m) { setAdd(S.mch3Sel, m); }); }
         } else {
           setToggle(S.mch3Sel, mch3);
+        }
+        updateAll();
+        return;
+      }
+
+      // MCH2 dropdown options (only inside #dd2Menu)
+      var dd2Opt = e.target.closest("#dd2Menu [data-mch2]");
+      if (dd2Opt) {
+        e.stopPropagation();
+        var mch2 = dd2Opt.dataset.mch2;
+        if (mch2 === "__all__") {
+          var all2 = getMCH2s();
+          if (setFrom(S.mch2Sel).length === all2.length) setClear(S.mch2Sel);
+          else { setClear(S.mch2Sel); all2.forEach(function (m) { setAdd(S.mch2Sel, m); }); }
+        } else {
+          setToggle(S.mch2Sel, mch2);
         }
         updateAll();
         return;
