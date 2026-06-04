@@ -396,14 +396,7 @@
   }
 
   function getMCH1s() {
-    var activeMch3s = getActiveMCH3s();
-    if (activeMch3s.length === _idx.mch3List.length) return _idx.mch1List;
-    var seen = {};
-    activeMch3s.forEach(function (m3) {
-      var items = _idx.byMch3[m3] || [];
-      items.forEach(function (d) { seen[d.mch1] = true; });
-    });
-    return Object.keys(seen).sort();
+    return _idx.mch1List;
   }
 
   function getActiveMCH1s() {
