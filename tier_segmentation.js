@@ -764,10 +764,27 @@
 
     var bgColors = TIERS.map(function (t) { return TC[t].c; });
 
+    var countData = TIERS.map(function (t) { return counts[t]; });
     if (charts.bar) charts.bar.destroy();
     charts.bar = new Chart(document.getElementById("chartBar").getContext("2d"), {
       type: "bar",
-      data: { labels: TIERS, datasets: [{ label: "SKU Count", data: TIERS.map(function (t) { return counts[t]; }), backgroundColor: bgColors, borderRadius: 6 }] },
+      data: { labels: TIERS, datasets: [{ label: "SKU Count", data: countData, backgroundColor: bgColors, borderRadius: 6 }] },
+      plugins: [{
+        id: "barLabels",
+        afterDraw: function (chart) {
+          var ctx2 = chart.ctx;
+          var meta = chart.getDatasetMeta(0);
+          meta.data.forEach(function (bar, i) {
+            ctx2.save();
+            ctx2.fillStyle = "#1a202c";
+            ctx2.font = "bold 12px Segoe UI, sans-serif";
+            ctx2.textAlign = "center";
+            ctx2.textBaseline = "bottom";
+            ctx2.fillText(countData[i].toLocaleString(), bar.x, bar.y - 4);
+            ctx2.restore();
+          });
+        }
+      }],
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: "#f0f0f0" } }, x: { grid: { display: false } } } }
     });
 
@@ -806,10 +823,27 @@
       options: { responsive: true, maintainAspectRatio: false, cutout: "40%", plugins: { legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 } } } } }
     });
 
+    var marginData = TIERS.map(function (t) { return sales[t] ? profits[t] / sales[t] * 100 : 0; });
     if (charts.profit) charts.profit.destroy();
     charts.profit = new Chart(document.getElementById("chartProfit").getContext("2d"), {
       type: "bar",
-      data: { labels: TIERS, datasets: [{ label: "Margin %", data: TIERS.map(function (t) { return sales[t] ? profits[t] / sales[t] * 100 : 0; }), backgroundColor: TIERS.map(function (t) { return TC[t].c + "CC"; }), borderColor: bgColors, borderWidth: 1, borderRadius: 6 }] },
+      data: { labels: TIERS, datasets: [{ label: "Margin %", data: marginData, backgroundColor: TIERS.map(function (t) { return TC[t].c + "CC"; }), borderColor: bgColors, borderWidth: 1, borderRadius: 6 }] },
+      plugins: [{
+        id: "marginLabels",
+        afterDraw: function (chart) {
+          var ctx2 = chart.ctx;
+          var meta = chart.getDatasetMeta(0);
+          meta.data.forEach(function (bar, i) {
+            ctx2.save();
+            ctx2.fillStyle = "#1a202c";
+            ctx2.font = "bold 12px Segoe UI, sans-serif";
+            ctx2.textAlign = "center";
+            ctx2.textBaseline = "bottom";
+            ctx2.fillText(marginData[i].toFixed(1) + "%", bar.x, bar.y - 4);
+            ctx2.restore();
+          });
+        }
+      }],
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: function (v) { return v + "%"; } }, grid: { color: "#f0f0f0" } }, x: { grid: { display: false } } } }
     });
   }
