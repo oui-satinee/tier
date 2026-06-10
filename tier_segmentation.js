@@ -164,7 +164,8 @@
     dFilter: "ALL",
     sortCol: null,
     sortDir: "asc",
-    worksheetName: ""
+    worksheetName: "",
+    brandSort: {}
   };
 
   var charts = { bar: null, donut: null, profit: null };
@@ -594,8 +595,18 @@
       var types = [{ key: "mb", label: "🏷️ Market Brand", cls: "flag-mb" }, { key: "pb", label: "📌 Private Brand", cls: "flag-pb" }, { key: "total", label: "รวม " + tier, cls: null }];
       types.forEach(function (bt, idx) {
         var d = results[tier][bt.key];
-        var ss = tot.sku ? (d.sku / tot.sku * 100) : 0;
-        var as = tot.amt ? (d.amt / tot.amt * 100) : 0;
+        var tierSku = results[tier].total.sku;
+        var tierAmt = results[tier].total.amt;
+        var ss, as;
+        if (bt.key === "total") {
+          // รวม Tier row: % share relative to grand total
+          ss = tot.sku ? (d.sku / tot.sku * 100) : 0;
+          as = tot.amt ? (d.amt / tot.amt * 100) : 0;
+        } else {
+          // MB/PB sub-rows: % share relative to tier total
+          ss = tierSku ? (d.sku / tierSku * 100) : 0;
+          as = tierAmt ? (d.amt / tierAmt * 100) : 0;
+        }
         if (bt.key === "total") {
           html += "<tr class=\"sub-group\" style=\"background:" + bg + ";font-weight:600;\"><td>รวม " + tier + "</td>"
             + "<td style=\"text-align:right\">" + fmt(d.sku) + "</td><td style=\"text-align:right\">" + fmt(d.amt) + "</td><td style=\"text-align:right\">" + fmt(d.qty) + "</td>"
@@ -627,7 +638,7 @@
     return html;
   }
 
-  function buildBrandTableContent(catData, bounds) {
+  function buildBrandTableContent(catData, bounds, mch1) {
     var tot = { sku: 0, amt: 0, qty: 0, profit: 0 };
     var results = {};
     var order = {};
@@ -646,6 +657,23 @@
       var bg = TC[tier].bg;
       var brands = order[tier];
       var rowCount = brands.length + 1;
+
+      // Sort brands within this tier by Sale Amt (default) or user-selected column
+      var bs = (mch1 && S.brandSort[mch1]) || { col: "amt", dir: "desc" };
+      brands.sort(function (a, b) {
+        var da = results[tier][a], db = results[tier][b];
+        var va, vb;
+        switch (bs.col) {
+          case "brand": va = a; vb = b; break;
+          case "sku": va = da.sku; vb = db.sku; break;
+          case "amt": va = da.amt; vb = db.amt; break;
+          case "qty": va = da.qty; vb = db.qty; break;
+          case "profit": va = da.profit; vb = db.profit; break;
+          default: va = da.amt; vb = db.amt;
+        }
+        if (typeof va === "string") return bs.dir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+        return bs.dir === "asc" ? va - vb : vb - va;
+      });
 
       brands.forEach(function (brand, idx) {
         var d = results[tier][brand];
@@ -702,13 +730,25 @@
       var tableContent;
       if (view === "simple") tableContent = buildSimpleTableContent(catData, bounds);
       else if (view === "detailed") tableContent = buildSummaryTableContent(catData, bounds);
-      else tableContent = buildBrandTableContent(catData, bounds);
+      else tableContent = buildBrandTableContent(catData, bounds, m);
 
-      var headers = view === "simple"
-        ? "<th>ระดับราคา (Tier)</th><th>ช่วงราคา</th><th>SKU Count</th><th>Sale Amt (฿)</th><th>Sale Qty</th><th>% SKU Share</th><th>% Sale Share</th><th>Profit (฿)</th><th>Profit/Item</th><th>Margin%</th><th>Avg Price/Item</th>"
-        : view === "detailed"
-        ? "<th>ระดับราคา (Tier)</th><th>ช่วงราคา</th><th>ประเภทแบรนด์</th><th>SKU Count</th><th>Sale Amt (฿)</th><th>Sale Qty</th><th>% SKU Share</th><th>% Sale Share</th><th>Profit (฿)</th><th>Profit/Item</th><th>Margin%</th><th>Avg Price/Item</th>"
-        : "<th>ระดับราคา (Tier)</th><th>ช่วงราคา</th><th>Brand</th><th>SKU Count</th><th>Sale Amt (฿)</th><th>Sale Qty</th><th>% SKU Share</th><th>% Sale Share</th><th>Profit (฿)</th><th>Profit/Item</th><th>Margin%</th><th>Avg Price/Item</th>";
+      var headers;
+      if (view === "simple") {
+        headers = "<th>ระดับราคา (Tier)</th><th>ช่วงราคา</th><th>SKU Count</th><th>Sale Amt (฿)</th><th>Sale Qty</th><th>% SKU Share</th><th>% Sale Share</th><th>Profit (฿)</th><th>Profit/Item</th><th>Margin%</th><th>Avg Price/Item</th>";
+      } else if (view === "detailed") {
+        headers = "<th>ระดับราคา (Tier)</th><th>ช่วงราคา</th><th>ประเภทแบรนด์</th><th>SKU Count</th><th>Sale Amt (฿)</th><th>Sale Qty</th><th>% SKU Share</th><th>% Sale Share</th><th>Profit (฿)</th><th>Profit/Item</th><th>Margin%</th><th>Avg Price/Item</th>";
+      } else {
+        // Brand view — sortable column headers with sort indicators
+        var bs = S.brandSort[m] || { col: "amt", dir: "desc" };
+        function sh(col, label) {
+          var arrow = bs.col === col ? (bs.dir === "asc" ? " ▲" : " ▼") : " ↕";
+          return '<th data-brand-sort="' + col + '" class="brand-sort-th">' + label + arrow + '</th>';
+        }
+        headers = "<th>ระดับราคา (Tier)</th><th>ช่วงราคา</th>"
+          + sh("brand", "Brand") + sh("sku", "SKU Count") + sh("amt", "Sale Amt (฿)") + sh("qty", "Sale Qty")
+          + "<th>% SKU Share</th><th>% Sale Share</th>" + sh("profit", "Profit (฿)")
+          + "<th>Profit/Item</th><th>Margin%</th><th>Avg Price/Item</th>";
+      }
 
       html += "<div class=\"card\" style=\"margin-bottom:24px;\">"
         + "<div class=\"mch1-title\"><div class=\"mch1-icon\"></div>"
@@ -936,6 +976,7 @@
     S.dFilter = "ALL";
     S.sortCol = null;
     S.sortDir = "asc";
+    S.brandSort = {};
     initBounds();
     updateAll();
   }
@@ -997,6 +1038,25 @@
       if (tabBtn && tabBtn.classList.contains("tab-btn")) {
         S.tableView[tabBtn.dataset.tabMch1] = tabBtn.dataset.tabView;
         updateAll();
+        return;
+      }
+
+      // Brand table column sort
+      var brandSortTh = e.target.closest("[data-brand-sort]");
+      if (brandSortTh) {
+        var card = brandSortTh.closest(".card");
+        var mch1El = card ? card.querySelector("[data-mch1]") : null;
+        var sortMch1 = mch1El ? mch1El.dataset.mch1 : null;
+        if (sortMch1) {
+          var col = brandSortTh.dataset.brandSort;
+          if (!S.brandSort[sortMch1]) S.brandSort[sortMch1] = { col: "amt", dir: "desc" };
+          if (S.brandSort[sortMch1].col === col) {
+            S.brandSort[sortMch1].dir = S.brandSort[sortMch1].dir === "desc" ? "asc" : "desc";
+          } else {
+            S.brandSort[sortMch1] = { col: col, dir: "desc" };
+          }
+          updateAll();
+        }
         return;
       }
     });
