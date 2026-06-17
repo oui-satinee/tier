@@ -339,8 +339,9 @@
           S.data = records;
           rebuildIndex();
 
-          S.catLevel   = "MCH1";
+          // Preserve category-level selection (MCH1/MCH2) across filter/data refreshes
           S.catBounds  = { MCH1: {}, MCH2: {} };
+          if (S.catLevel === "MCH2" && !hasMch2Data()) S.catLevel = "MCH1";
           S.tableView  = {};
           S.dFilter    = "ALL";
           S.sortCol    = null;
