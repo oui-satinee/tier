@@ -136,6 +136,13 @@ body{font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;backgrou
 .charts-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
 .chart-card canvas{max-height:260px}
 .chart-card h3{font-size:.85rem;margin-bottom:10px}
+.cat-level-bar{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 20px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.cat-level-label{font-size:.8rem;font-weight:600;color:var(--text-mid)}
+.cat-toggle{display:inline-flex;background:var(--bg);border-radius:8px;padding:3px;gap:2px}
+.cat-toggle-btn{padding:7px 16px;border:none;background:transparent;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:600;color:var(--text-light);transition:all .15s}
+.cat-toggle-btn.active{background:#fff;color:var(--accent);box-shadow:var(--shadow)}
+.cat-toggle-btn:disabled{opacity:.45;cursor:not-allowed}
+.cat-toggle-btn:not(:disabled):hover{color:var(--text)}
 
 @media(max-width:1100px){.charts-row{grid-template-columns:1fr 1fr}.ctrl-bar{flex-direction:column;align-items:stretch}}
 @media(max-width:768px){.charts-row{grid-template-columns:1fr}.container{padding:12px}.header{padding:14px 18px;flex-direction:column;gap:10px}.sum-table{font-size:.72rem}.sum-table th,.sum-table td{padding:5px 4px}.abs-inputs{grid-template-columns:repeat(2,1fr)}}
@@ -153,7 +160,7 @@ body{font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;backgrou
 <div class="header">
   <div>
     <h1>📊 Price Tier Segmentation Tool</h1>
-    <div class="sub">แบ่งกลุ่มสินค้าตามช่วงราคา — ปรับ Tier แยกตามหมวด MCH1 | Sub-table: Private Brand &amp; Brand</div>
+    <div class="sub">แบ่งกลุ่มสินค้าตามช่วงราคา — ปรับ Tier แยกตามหมวด MCH1 / MCH2 | Sub-table: Private Brand &amp; Brand</div>
   </div>
   <div class="h-actions">
     <button class="h-btn" id="exportCSVTier">📥 Export SKU</button>
@@ -179,6 +186,15 @@ body{font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;backgrou
   <span id="errorText"></span>
 </div>
 
+<div id="catLevelBar" class="cat-level-bar" style="display:none">
+  <span class="cat-level-label">🏷️ ปรับ Tier แยกตามหมวด:</span>
+  <div class="cat-toggle">
+    <button type="button" class="cat-toggle-btn active" data-cat-level="MCH1">MCH1 — กลุ่มสินค้า</button>
+    <button type="button" class="cat-toggle-btn" data-cat-level="MCH2">MCH2 — กลุ่มหมวดหมู่</button>
+  </div>
+  <span style="font-size:.74rem;color:var(--text-light);margin-left:auto">สลับหมวดเพื่อคำนวณช่วงราคา Tier แยกตามหมวดที่เลือก</span>
+</div>
+
 <div id="summaryContainer"></div>
 
 <div class="charts-row" id="chartsRow" style="display:none">
@@ -192,7 +208,7 @@ body{font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;backgrou
   <h2 style="margin:0">📋 รายละเอียด SKU (<span id="rowCount">0</span>)</h2>
   <div class="tbl-controls"><input class="search-box" id="searchBox" placeholder="🔍 ค้นหา...">
   <div style="display:flex;gap:4px"><button class="f-chip sel" data-f="ALL">ALL</button><button class="f-chip" data-f="ECO">ECO</button><button class="f-chip" data-f="MASS">MASS</button><button class="f-chip" data-f="PREMIUM">PREMIUM</button><button class="f-chip" data-f="LUXURY">LUXURY</button></div></div></div>
-  <div class="dtbl-wrap"><table class="d-table"><thead><tr><th data-col="sku">SKU↕</th><th data-col="product">Product↕</th><th data-col="mch3">MCH3↕</th><th data-col="mch1">MCH1↕</th><th data-col="brand">Brand↕</th><th data-col="price">Price↕</th><th data-col="saleAmt">SaleAmt↕</th><th data-col="saleQty">SaleQty↕</th><th data-col="profit">Profit↕</th><th data-col="margin">Margin%↕</th><th data-col="tier">Tier↕</th></tr></thead><tbody id="dBody"></tbody></table></div>
+  <div class="dtbl-wrap"><table class="d-table"><thead><tr><th data-col="sku">SKU↕</th><th data-col="product">Product↕</th><th data-col="mch3">MCH3↕</th><th data-col="mch2">MCH2↕</th><th data-col="mch1">MCH1↕</th><th data-col="brand">Brand↕</th><th data-col="price">Price↕</th><th data-col="saleAmt">SaleAmt↕</th><th data-col="saleQty">SaleQty↕</th><th data-col="profit">Profit↕</th><th data-col="margin">Margin%↕</th><th data-col="tier">Tier↕</th></tr></thead><tbody id="dBody"></tbody></table></div>
 </div>
 
 </div><!-- .container -->

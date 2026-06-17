@@ -159,7 +159,8 @@
   // ─── State ────────────────────────────────────────────────
   var S = {
     data: [],
-    mch1Bounds: {},
+    catLevel: "MCH1",
+    catBounds: { MCH1: {}, MCH2: {} },
     tableView: {},
     dFilter: "ALL",
     sortCol: null,
@@ -208,6 +209,19 @@
   }
 
   function getDataForMch1(mch1) { return _idx.byMch1[mch1] || []; }
+  function getDataForMch2(mch2) { return _idx.byMch2[mch2] || []; }
+
+  function getDataForCat(cat) {
+    return S.catLevel === "MCH2" ? getDataForMch2(cat) : getDataForMch1(cat);
+  }
+  function catOfRecord(d) { return S.catLevel === "MCH2" ? d.mch2 : d.mch1; }
+  function boundsMap() { return S.catLevel === "MCH2" ? S.catBounds.MCH2 : S.catBounds.MCH1; }
+  function catDisplayName(cat) { return cat && cat !== "" ? cat : "ไม่ระบุหมวด"; }
+  function catStateKey(cat) { return S.catLevel + "\u0001" + cat; }
+  function hasMch2Data() {
+    for (var i = 0; i < _idx.mch2List.length; i++) { if (_idx.mch2List[i]) return true; }
+    return false;
+  }
 
   function getActiveData() {
     // No cascade filter — return all data (filtering handled by data source)
@@ -236,6 +250,8 @@
   function showDashboard(show) {
     document.getElementById("chartsRow").style.display      = show ? "" : "none";
     document.getElementById("detailCard").style.display     = show ? "" : "none";
+    document.getElementById("catLevelBar").style.display    = show ? "flex" : "none";
+    if (show) refreshCatToggle();
   }
 
   // ─── Tableau: Data Loading ────────────────────────────────
@@ -323,7 +339,8 @@
           S.data = records;
           rebuildIndex();
 
-          S.mch1Bounds = {};
+          S.catLevel   = "MCH1";
+          S.catBounds  = { MCH1: {}, MCH2: {} };
           S.tableView  = {};
           S.dFilter    = "ALL";
           S.sortCol    = null;
@@ -376,7 +393,28 @@
   // ═══════════════════════════════════════════════════════════
 
   // No dropdown filters — all data used directly
-  function getMCH1s() { return _idx.mch1List; }
+  function getCategories() {
+    return S.catLevel === "MCH2" ? _idx.mch2List : _idx.mch1List;
+  }
+  function setCatLevel(level) {
+    if (level !== "MCH1" && level !== "MCH2") return;
+    if (level === "MCH2" && !hasMch2Data()) return;
+    S.catLevel = level;
+    initBounds();
+    refreshCatToggle();
+    updateAll();
+  }
+  function refreshCatToggle() {
+    var bar = document.getElementById("catLevelBar");
+    if (!bar) return;
+    var has2 = hasMch2Data();
+    bar.querySelectorAll("[data-cat-level]").forEach(function (btn) {
+      var lvl = btn.dataset.catLevel;
+      btn.disabled = (lvl === "MCH2" && !has2);
+      btn.title = (lvl === "MCH2" && !has2) ? "ไม่มีข้อมูลคอลัมน์ MCH2 ใน Worksheet นี้" : "";
+      btn.classList.toggle("active", lvl === S.catLevel);
+    });
+  }
 
   // ─── Bounds & Tier ────────────────────────────────────────
   function getPercentile(arr, p) {
@@ -388,22 +426,24 @@
     return arr[base];
   }
 
-  function calcDefaultBounds(mch1) {
-    var prices = getDataForMch1(mch1).map(function (d) { return d.price; }).sort(function (a, b) { return a - b; });
+  function calcDefaultBounds(cat) {
+    var prices = getDataForCat(cat).map(function (d) { return d.price; }).sort(function (a, b) { return a - b; });
     return [Math.round(getPercentile(prices, 0.25)), Math.round(getPercentile(prices, 0.50)), Math.round(getPercentile(prices, 0.75))];
   }
 
   function initBounds() {
-    getMCH1s().forEach(function (m) {
-      if (!S.mch1Bounds[m]) {
-        S.mch1Bounds[m] = calcDefaultBounds(m);
+    var bm = boundsMap();
+    getCategories().forEach(function (m) {
+      if (!bm[m]) {
+        bm[m] = calcDefaultBounds(m);
       }
     });
   }
 
-  function getActiveBounds(mch1) {
-    if (!S.mch1Bounds[mch1]) S.mch1Bounds[mch1] = calcDefaultBounds(mch1);
-    return S.mch1Bounds[mch1];
+  function getActiveBounds(cat) {
+    var bm = boundsMap();
+    if (!bm[cat]) bm[cat] = calcDefaultBounds(cat);
+    return bm[cat];
   }
 
   function assignTier(price, bounds) {
@@ -413,7 +453,7 @@
     return "ECO";
   }
 
-  function getSKUTier(d) { return assignTier(d.price, getActiveBounds(d.mch1)); }
+  function getSKUTier(d) { return assignTier(d.price, getActiveBounds(catOfRecord(d))); }
 
   function tierPriceRange(tier, bounds) {
     switch (tier) {
@@ -429,10 +469,10 @@
   // ─── Slider ───────────────────────────────────────────────
   var _drag = null;
 
-  function startSliderDrag(e, mch1, idx) {
+  function startSliderDrag(e, cat, idx) {
     e.preventDefault();
     e.stopPropagation();
-    _drag = { mch1: mch1, idx: idx };
+    _drag = { cat: cat, idx: idx };
     e.target.classList.add("dragging");
     document.addEventListener("mousemove", doSliderDrag);
     document.addEventListener("mouseup", endSliderDrag);
@@ -442,7 +482,7 @@
 
   function doSliderDrag(e) {
     if (!_drag) return;
-    var bar = document.querySelector('.slider-bar[data-mch1="' + _drag.mch1 + '"]');
+    var bar = document.querySelector('.slider-bar[data-cat="' + _drag.cat + '"]');
     if (!bar) return;
     var rect = bar.getBoundingClientRect();
     var max = parseFloat(bar.dataset.max);
@@ -450,20 +490,21 @@
     var pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     var val = Math.round(pct * max);
 
-    var bounds = (S.mch1Bounds[_drag.mch1] || [0, 0, 0]).slice();
+    var bm = boundsMap();
+    var bounds = (bm[_drag.cat] || [0, 0, 0]).slice();
     if (_drag.idx === 0) bounds[0] = Math.min(val, bounds[1]);
     else if (_drag.idx === 1) bounds[1] = Math.max(bounds[0], Math.min(val, bounds[2]));
     else bounds[2] = Math.max(bounds[1], val);
 
-    S.mch1Bounds[_drag.mch1] = bounds;
-    updateSliderDOM(_drag.mch1, bounds, max);
+    bm[_drag.cat] = bounds;
+    updateSliderDOM(_drag.cat, bounds, max);
   }
 
   function doSliderDragTouch(e) {
     e.preventDefault();
     if (!_drag) return;
     var touch = e.touches[0];
-    var bar = document.querySelector('.slider-bar[data-mch1="' + _drag.mch1 + '"]');
+    var bar = document.querySelector('.slider-bar[data-cat="' + _drag.cat + '"]');
     if (!bar) return;
     var rect = bar.getBoundingClientRect();
     var max = parseFloat(bar.dataset.max);
@@ -471,19 +512,19 @@
     var pct = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
     var val = Math.round(pct * max);
 
-    var bounds = (S.mch1Bounds[_drag.mch1] || [0, 0, 0]).slice();
+    var bm = boundsMap();
+    var bounds = (bm[_drag.cat] || [0, 0, 0]).slice();
     if (_drag.idx === 0) bounds[0] = Math.min(val, bounds[1]);
     else if (_drag.idx === 1) bounds[1] = Math.max(bounds[0], Math.min(val, bounds[2]));
     else bounds[2] = Math.max(bounds[1], val);
 
-    S.mch1Bounds[_drag.mch1] = bounds;
-    updateSliderDOM(_drag.mch1, bounds, max);
+    bm[_drag.cat] = bounds;
+    updateSliderDOM(_drag.cat, bounds, max);
   }
 
   function endSliderDrag() {
     if (_drag) {
       document.querySelectorAll(".slider-handle.dragging").forEach(function (h) { h.classList.remove("dragging"); });
-      var mch1 = _drag.mch1;
       _drag = null;
       document.removeEventListener("mousemove", doSliderDrag);
       document.removeEventListener("mouseup", endSliderDrag);
@@ -493,8 +534,8 @@
     }
   }
 
-  function updateSliderDOM(mch1, bounds, max) {
-    var tc = document.querySelector('.tier-ctrl[data-mch1="' + mch1 + '"]');
+  function updateSliderDOM(cat, bounds, max) {
+    var tc = document.querySelector('.tier-ctrl[data-cat="' + cat + '"]');
     if (!tc) return;
     var b0 = bounds[0], b1 = bounds[1], b2 = bounds[2];
 
@@ -523,16 +564,17 @@
     if (ai[2]) { ai[2].value = b2; ai[2].min = b1; }
   }
 
-  function onAbsInput(mch1, idx, val) {
+  function onAbsInput(cat, idx, val) {
     val = Math.round(parseFloat(val));
     if (isNaN(val) || val < 0) return;
-    var bounds = (S.mch1Bounds[mch1] || [0, 0, 0]).slice();
-    var prices = getDataForMch1(mch1).map(function (d) { return d.price; });
+    var bm = boundsMap();
+    var bounds = (bm[cat] || [0, 0, 0]).slice();
+    var prices = getDataForCat(cat).map(function (d) { return d.price; });
     var max = prices.length ? Math.max.apply(null, prices) : 10000;
     if (idx === 0) bounds[0] = Math.min(val, bounds[1]);
     else if (idx === 1) bounds[1] = Math.max(bounds[0], Math.min(val, bounds[2]));
     else bounds[2] = Math.max(bounds[1], Math.min(val, max));
-    S.mch1Bounds[mch1] = bounds;
+    bm[cat] = bounds;
     updateAll();
   }
 
@@ -659,7 +701,7 @@
       var rowCount = brands.length + 1;
 
       // Sort brands within this tier by Sale Amt (default) or user-selected column
-      var bs = (mch1 && S.brandSort[mch1]) || { col: "amt", dir: "desc" };
+      var bs = (mch1 && S.brandSort[catStateKey(mch1)]) || { col: "amt", dir: "desc" };
       brands.sort(function (a, b) {
         var da = results[tier][a], db = results[tier][b];
         var va, vb;
@@ -710,7 +752,7 @@
 
   // ─── Render Summary ───────────────────────────────────────
   function renderSummary() {
-    var activeMch1s = getMCH1s();
+    var activeMch1s = getCategories();
     var container = document.getElementById("summaryContainer");
 
     if (activeMch1s.length === 0) {
@@ -720,12 +762,12 @@
 
     var html = "";
     activeMch1s.forEach(function (m) {
-      var catData = getDataForMch1(m);
+      var catData = getDataForCat(m);
       var prices = catData.map(function (d) { return d.price; });
       var max = prices.length ? Math.max.apply(null, prices) : 10000;
       var bounds = getActiveBounds(m);
       var b0 = bounds[0], b1 = bounds[1], b2 = bounds[2];
-      var view = S.tableView[m] || "simple";
+      var view = S.tableView[catStateKey(m)] || "simple";
 
       var tableContent;
       if (view === "simple") tableContent = buildSimpleTableContent(catData, bounds);
@@ -739,7 +781,7 @@
         headers = "<th>ระดับราคา (Tier)</th><th>ช่วงราคา</th><th>ประเภทแบรนด์</th><th>SKU Count</th><th>Sale Amt (฿)</th><th>Sale Qty</th><th>% SKU Share</th><th>% Sale Share</th><th>Profit (฿)</th><th>Profit/Item</th><th>Margin%</th><th>Avg Price/Item</th>";
       } else {
         // Brand view — sortable column headers with sort indicators
-        var bs = S.brandSort[m] || { col: "amt", dir: "desc" };
+        var bs = S.brandSort[catStateKey(m)] || { col: "amt", dir: "desc" };
         function sh(col, label) {
           var arrow = bs.col === col ? (bs.dir === "asc" ? " ▲" : " ▼") : " ↕";
           return '<th data-brand-sort="' + col + '" class="brand-sort-th">' + label + arrow + '</th>';
@@ -752,10 +794,10 @@
 
       html += "<div class=\"card\" style=\"margin-bottom:24px;\">"
         + "<div class=\"mch1-title\"><div class=\"mch1-icon\"></div>"
-        + "<span style=\"font-size:1.1rem;color:var(--text)\">หมวดหมู่: <b>" + m + "</b> (" + catData.length + " SKU)</span>"
+        + "<span style=\"font-size:1.1rem;color:var(--text)\">หมวดหมู่ (" + S.catLevel + "): <b>" + catDisplayName(m) + "</b> (" + catData.length + " SKU)</span>"
         + "</div>"
 
-        + "<div class=\"tier-ctrl\" data-mch1=\"" + escAttr(m) + "\">"
+        + "<div class=\"tier-ctrl\" data-cat=\"" + escAttr(m) + "\">"
         + "<div class=\"tier-ctrl-label\">🎛️ ช่วงราคา (ECO → MASS → PREMIUM → LUXURY) — ลากจุดกลมเพื่อปรับ</div>"
         + "<div class=\"slider-labels\" style=\"position:relative;height:18px;margin-bottom:4px;\">"
         + "<span style=\"left:0%;position:absolute;\">฿0</span>"
@@ -764,26 +806,26 @@
         + "<span class=\"lbl-prem\" style=\"left:" + (b2/max*100) + "%;position:absolute;transform:translateX(-50%);color:var(--premium);font-weight:600;\">PREM: ฿" + b2.toLocaleString() + "</span>"
         + "<span style=\"right:0%;position:absolute;\">Max: ฿" + max.toLocaleString() + "</span></div>"
 
-        + "<div class=\"slider-bar\" data-mch1=\"" + escAttr(m) + "\" data-max=\"" + max + "\" style=\"position:relative;height:40px;background:#e2e8f0;border-radius:6px;overflow:visible;\">"
+        + "<div class=\"slider-bar\" data-cat=\"" + escAttr(m) + "\" data-max=\"" + max + "\" style=\"position:relative;height:40px;background:#e2e8f0;border-radius:6px;overflow:visible;\">"
         + "<div class=\"slider-track\" style=\"position:absolute;top:14px;left:0;right:0;height:12px;display:flex;border-radius:6px;overflow:hidden;\">"
         + "<div class=\"seg\" style=\"width:" + (b0/max*100) + "%;background:var(--eco-bg);height:100%;\"></div>"
         + "<div class=\"seg\" style=\"width:" + ((b1-b0)/max*100) + "%;background:var(--mass-bg);height:100%;\"></div>"
         + "<div class=\"seg\" style=\"width:" + ((b2-b1)/max*100) + "%;background:var(--premium-bg);height:100%;\"></div>"
         + "<div class=\"seg\" style=\"width:" + ((max-b2)/max*100) + "%;background:var(--luxury-bg);height:100%;\"></div></div>"
-        + "<div class=\"slider-handle h-eco\" data-idx=\"0\" style=\"left:" + (b0/max*100) + "%\" data-mch1=\"" + escAttr(m) + "\" data-drag-idx=\"0\"></div>"
-        + "<div class=\"slider-handle h-mass\" data-idx=\"1\" style=\"left:" + (b1/max*100) + "%\" data-mch1=\"" + escAttr(m) + "\" data-drag-idx=\"1\"></div>"
-        + "<div class=\"slider-handle h-prem\" data-idx=\"2\" style=\"left:" + (b2/max*100) + "%\" data-mch1=\"" + escAttr(m) + "\" data-drag-idx=\"2\"></div></div>"
+        + "<div class=\"slider-handle h-eco\" data-idx=\"0\" style=\"left:" + (b0/max*100) + "%\" data-cat=\"" + escAttr(m) + "\" data-drag-idx=\"0\"></div>"
+        + "<div class=\"slider-handle h-mass\" data-idx=\"1\" style=\"left:" + (b1/max*100) + "%\" data-cat=\"" + escAttr(m) + "\" data-drag-idx=\"1\"></div>"
+        + "<div class=\"slider-handle h-prem\" data-idx=\"2\" style=\"left:" + (b2/max*100) + "%\" data-cat=\"" + escAttr(m) + "\" data-drag-idx=\"2\"></div></div>"
 
         + "<div class=\"abs-inputs\">"
-        + "<div class=\"ai\"><div class=\"ai-dot\" style=\"background:var(--eco)\"></div><span class=\"ai-label\">Max ECO</span><input type=\"number\" min=\"0\" max=\"" + b1 + "\" value=\"" + b0 + "\" data-abs-mch1=\"" + escAttr(m) + "\" data-abs-idx=\"0\"></div>"
-        + "<div class=\"ai\"><div class=\"ai-dot\" style=\"background:var(--mass)\"></div><span class=\"ai-label\">Max MASS</span><input type=\"number\" min=\"" + b0 + "\" max=\"" + b2 + "\" value=\"" + b1 + "\" data-abs-mch1=\"" + escAttr(m) + "\" data-abs-idx=\"1\"></div>"
-        + "<div class=\"ai\"><div class=\"ai-dot\" style=\"background:var(--premium)\"></div><span class=\"ai-label\">Max PREMIUM</span><input type=\"number\" min=\"" + b1 + "\" max=\"" + max + "\" value=\"" + b2 + "\" data-abs-mch1=\"" + escAttr(m) + "\" data-abs-idx=\"2\"></div>"
+        + "<div class=\"ai\"><div class=\"ai-dot\" style=\"background:var(--eco)\"></div><span class=\"ai-label\">Max ECO</span><input type=\"number\" min=\"0\" max=\"" + b1 + "\" value=\"" + b0 + "\" data-abs-cat=\"" + escAttr(m) + "\" data-abs-idx=\"0\"></div>"
+        + "<div class=\"ai\"><div class=\"ai-dot\" style=\"background:var(--mass)\"></div><span class=\"ai-label\">Max MASS</span><input type=\"number\" min=\"" + b0 + "\" max=\"" + b2 + "\" value=\"" + b1 + "\" data-abs-cat=\"" + escAttr(m) + "\" data-abs-idx=\"1\"></div>"
+        + "<div class=\"ai\"><div class=\"ai-dot\" style=\"background:var(--premium)\"></div><span class=\"ai-label\">Max PREMIUM</span><input type=\"number\" min=\"" + b1 + "\" max=\"" + max + "\" value=\"" + b2 + "\" data-abs-cat=\"" + escAttr(m) + "\" data-abs-idx=\"2\"></div>"
         + "<div class=\"ai\"><div class=\"ai-dot\" style=\"background:var(--luxury)\"></div><span class=\"ai-label\">Max LUXURY</span><input type=\"number\" value=\"" + max + "\" disabled></div></div></div>"
 
         + "<div class=\"tab-bar\" style=\"margin-top:14px;display:inline-flex;\">"
-        + "<button class=\"tab-btn " + (view === "simple" ? "active" : "") + "\" data-tab-mch1=\"" + m + "\" data-tab-view=\"simple\">สรุปรวม</button>"
-        + "<button class=\"tab-btn " + (view === "detailed" ? "active" : "") + "\" data-tab-mch1=\"" + m + "\" data-tab-view=\"detailed\">Private Brand</button>"
-        + "<button class=\"tab-btn " + (view === "brand" ? "active" : "") + "\" data-tab-mch1=\"" + m + "\" data-tab-view=\"brand\">Brand</button></div>"
+        + "<button class=\"tab-btn " + (view === "simple" ? "active" : "") + "\" data-tab-cat=\"" + escAttr(m) + "\" data-tab-view=\"simple\">สรุปรวม</button>"
+        + "<button class=\"tab-btn " + (view === "detailed" ? "active" : "") + "\" data-tab-cat=\"" + escAttr(m) + "\" data-tab-view=\"detailed\">Private Brand</button>"
+        + "<button class=\"tab-btn " + (view === "brand" ? "active" : "") + "\" data-tab-cat=\"" + escAttr(m) + "\" data-tab-view=\"brand\">Brand</button></div>"
 
         + "<div style=\"overflow-x:auto;\"><table class=\"sum-table\"><thead><tr>" + headers + "</tr></thead><tbody>" + tableContent + "</tbody></table></div></div>";
     });
@@ -893,7 +935,7 @@
     var search = document.getElementById("searchBox").value.toLowerCase();
 
     var filtered = getActiveData().filter(function (d) {
-      if (search && d.sku.toLowerCase().indexOf(search) === -1 && d.product.toLowerCase().indexOf(search) === -1 && d.mch3.toLowerCase().indexOf(search) === -1 && d.mch1.toLowerCase().indexOf(search) === -1 && d.brand.toLowerCase().indexOf(search) === -1) return false;
+      if (search && d.sku.toLowerCase().indexOf(search) === -1 && d.product.toLowerCase().indexOf(search) === -1 && d.mch3.toLowerCase().indexOf(search) === -1 && d.mch2.toLowerCase().indexOf(search) === -1 && d.mch1.toLowerCase().indexOf(search) === -1 && d.brand.toLowerCase().indexOf(search) === -1) return false;
       if (S.dFilter !== "ALL" && getSKUTier(d) !== S.dFilter) return false;
       return true;
     });
@@ -912,7 +954,7 @@
     filtered.forEach(function (d) {
       var tier = getSKUTier(d);
       var margin = d.margin ? d.margin.toFixed(2) + "%" : "-";
-      html += "<tr><td>" + d.sku + "</td><td><b>" + d.product + "</b></td><td>" + d.mch3 + "</td><td>" + d.mch1 + "</td>"
+      html += "<tr><td>" + d.sku + "</td><td><b>" + d.product + "</b></td><td>" + d.mch3 + "</td><td>" + d.mch2 + "</td><td>" + d.mch1 + "</td>"
         + "<td>" + d.brand + " <span style=\"font-size:.72rem;color:var(--text-light);\">(" + d.flag + ")</span></td>"
         + "<td>฿" + fmt(d.price) + "</td><td>฿" + fmt(d.saleAmt) + "</td><td>" + fmt(d.saleQty) + "</td>"
         + "<td>฿" + fmt(d.profit) + "</td><td>" + margin + "</td><td><span class=\"badge-tier " + tier.toLowerCase() + "\">" + tier + "</span></td></tr>";
@@ -924,10 +966,10 @@
   function exportCSV() {
     if (!S.data.length) return;
     var filtered = getActiveData();
-    var csv = "﻿SKU,Product,MCH3,MCH1,Brand,Flag,Price,Sale Amt,Sale Qty,Profit,Margin%,Tier\n";
+    var csv = "﻿SKU,Product,MCH3,MCH2,MCH1,Brand,Flag,Price,Sale Amt,Sale Qty,Profit,Margin%,Tier\n";
     filtered.forEach(function (d) {
       var margin = d.margin ? d.margin.toFixed(2) : 0;
-      csv += d.sku + ",\"" + d.product.replace(/"/g, '""') + "\"," + d.mch3 + "," + d.mch1 + "," + d.brand + "," + d.flag + "," + d.price + "," + d.saleAmt + "," + d.saleQty + "," + d.profit + "," + margin + "%," + getSKUTier(d) + "\n";
+      csv += d.sku + ",\"" + d.product.replace(/"/g, '""') + "\"," + d.mch3 + "," + d.mch2 + "," + d.mch1 + "," + d.brand + "," + d.flag + "," + d.price + "," + d.saleAmt + "," + d.saleQty + "," + d.profit + "," + margin + "%," + getSKUTier(d) + "\n";
     });
     var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     var a = document.createElement("a");
@@ -937,13 +979,13 @@
   }
 
   function exportSummary() {
-    var activeMch1s = getMCH1s();
+    var activeMch1s = getCategories();
     if (!activeMch1s.length) return;
     var csv = "﻿";
     activeMch1s.forEach(function (m) {
-      var catData = getDataForMch1(m);
+      var catData = getDataForCat(m);
       var bounds = getActiveBounds(m);
-      csv += "\nหมวดหมู่: " + m + " (" + catData.length + " SKU)\n";
+      csv += "\nหมวดหมู่ (" + S.catLevel + "): " + catDisplayName(m) + " (" + catData.length + " SKU)\n";
       csv += "ช่วงราคา,ECO < ฿" + bounds[0].toLocaleString() + ",MASS ฿" + bounds[0].toLocaleString() + "-" + bounds[1].toLocaleString() + ",PREMIUM ฿" + bounds[1].toLocaleString() + "-" + bounds[2].toLocaleString() + ",LUXURY > ฿" + bounds[2].toLocaleString() + "\n\n";
       csv += "Tier,ช่วงราคา,SKU Count,Sale Amt,Sale Qty,% SKU Share,% Sale Share,Profit,Profit/Item,Margin%,Avg Price/Item\n";
       TIERS.forEach(function (tier) {
@@ -971,7 +1013,7 @@
   }
 
   function resetBounds() {
-    S.mch1Bounds = {};
+    S.catBounds = { MCH1: {}, MCH2: {} };
     S.tableView = {};
     S.dFilter = "ALL";
     S.sortCol = null;
@@ -1027,16 +1069,16 @@
     document.addEventListener("mousedown", function (e) {
       var handle = e.target.closest(".slider-handle");
       if (handle) {
-        startSliderDrag(e, handle.dataset.mch1, parseInt(handle.dataset.dragIdx));
+        startSliderDrag(e, handle.dataset.cat, parseInt(handle.dataset.dragIdx));
         return;
       }
     });
 
     document.addEventListener("click", function (e) {
       // Tab buttons
-      var tabBtn = e.target.closest("[data-tab-mch1]");
+      var tabBtn = e.target.closest("[data-tab-cat]");
       if (tabBtn && tabBtn.classList.contains("tab-btn")) {
-        S.tableView[tabBtn.dataset.tabMch1] = tabBtn.dataset.tabView;
+        S.tableView[catStateKey(tabBtn.dataset.tabCat)] = tabBtn.dataset.tabView;
         updateAll();
         return;
       }
@@ -1045,27 +1087,35 @@
       var brandSortTh = e.target.closest("[data-brand-sort]");
       if (brandSortTh) {
         var card = brandSortTh.closest(".card");
-        var mch1El = card ? card.querySelector("[data-mch1]") : null;
-        var sortMch1 = mch1El ? mch1El.dataset.mch1 : null;
-        if (sortMch1) {
+        var catEl = card ? card.querySelector("[data-cat]") : null;
+        var sortCat = catEl ? catEl.dataset.cat : null;
+        if (sortCat) {
+          var key = catStateKey(sortCat);
           var col = brandSortTh.dataset.brandSort;
-          if (!S.brandSort[sortMch1]) S.brandSort[sortMch1] = { col: "amt", dir: "desc" };
-          if (S.brandSort[sortMch1].col === col) {
-            S.brandSort[sortMch1].dir = S.brandSort[sortMch1].dir === "desc" ? "asc" : "desc";
+          if (!S.brandSort[key]) S.brandSort[key] = { col: "amt", dir: "desc" };
+          if (S.brandSort[key].col === col) {
+            S.brandSort[key].dir = S.brandSort[key].dir === "desc" ? "asc" : "desc";
           } else {
-            S.brandSort[sortMch1] = { col: col, dir: "desc" };
+            S.brandSort[key] = { col: col, dir: "desc" };
           }
           updateAll();
         }
+        return;
+      }
+
+      // Category level toggle (MCH1 / MCH2)
+      var catBtn = e.target.closest("[data-cat-level]");
+      if (catBtn && !catBtn.disabled) {
+        setCatLevel(catBtn.dataset.catLevel);
         return;
       }
     });
 
     // Delegated change for abs inputs
     document.getElementById("summaryContainer").addEventListener("change", function (e) {
-      var absInput = e.target.closest("[data-abs-mch1]");
+      var absInput = e.target.closest("[data-abs-cat]");
       if (absInput) {
-        onAbsInput(absInput.dataset.absMch1, parseInt(absInput.dataset.absIdx), absInput.value);
+        onAbsInput(absInput.dataset.absCat, parseInt(absInput.dataset.absIdx), absInput.value);
       }
     });
 
